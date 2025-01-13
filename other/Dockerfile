@@ -86,10 +86,17 @@ COPY --from=build /myapp/prisma /myapp/prisma
 COPY --from=build /myapp/app/components/ui/icons /myapp/app/components/ui/icons
 
 # prepare for litefs
-COPY --from=flyio/litefs:0.5.11 /usr/local/bin/litefs /usr/local/bin/litefs
-ADD other/litefs.yml /etc/litefs.yml
-RUN mkdir -p /data ${LITEFS_DIR}
-
+VOLUME /litefs
 ADD . .
 
-CMD ["litefs", "mount"]
+EXPOSE ${PORT}
+ENTRYPOINT ["/myapp/other/docker-entry-point.sh"]
+
+# For Fly.io
+# COPY --from=flyio/litefs:0.5.11 /usr/local/bin/litefs /usr/local/bin/litefs
+# ADD other/litefs.yml /etc/litefs.yml
+# RUN mkdir -p /data ${LITEFS_DIR}
+
+# ADD . .
+
+# CMD ["litefs", "mount"]
