@@ -1,19 +1,19 @@
-import { generateTOTP } from '@epic-web/totp'
+import { invariant } from '@epic-web/invariant'
 import { faker } from '@faker-js/faker'
 import { http } from 'msw'
 import { afterEach, expect, test } from 'vitest'
+import { twoFAVerificationType } from '#app/routes/settings+/profile.two-factor.tsx'
 import { getSessionExpirationDate, sessionKey } from '#app/utils/auth.server.ts'
 import { connectionSessionStorage } from '#app/utils/connections.server.ts'
 import { GITHUB_PROVIDER_NAME } from '#app/utils/connections.tsx'
 import { prisma } from '#app/utils/db.server.ts'
-import { invariant } from '#app/utils/misc.tsx'
-import { sessionStorage } from '#app/utils/session.server.ts'
+import { authSessionStorage } from '#app/utils/session.server.ts'
+import { generateTOTP } from '#app/utils/totp.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { insertGitHubUser, deleteGitHubUsers } from '#tests/mocks/github.ts'
 import { server } from '#tests/mocks/index.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { BASE_URL, convertSetCookieToCookie } from '#tests/utils.ts'
-import { twoFAVerificationType } from '../settings+/profile.two-factor.tsx'
 import { loader } from './auth.$provider.callback.ts'
 
 const ROUTE_PATH = '/auth/github/callback'
@@ -25,7 +25,9 @@ afterEach(async () => {
 
 test('a new user goes to onboarding', async () => {
 	const request = await setupRequest()
-	const response = await loader({ request, params: PARAMS, context: {} })
+	const response = await loader({ request, params: PARAMS, context: {} }).catch(
+		(e) => e,
+	)
 	expect(response).toHaveRedirect('/onboarding/github')
 })
 
@@ -38,7 +40,7 @@ test('when auth fails, send the user to login with a toast', async () => {
 	)
 	const request = await setupRequest()
 	const response = await loader({ request, params: PARAMS, context: {} }).catch(
-		e => e,
+		(e) => e,
 	)
 	invariant(response instanceof Response, 'response should be a Response')
 	expect(response).toHaveRedirect('/login')
@@ -96,7 +98,7 @@ test(`when a user is logged in and has already connected, it doesn't do anything
 	})
 	const response = await loader({ request, params: PARAMS, context: {} })
 	expect(response).toHaveRedirect('/settings/profile/connections')
-	expect(response).toSendToast(
+	await expect(response).toSendToast(
 		expect.objectContaining({
 			title: 'Already Connected',
 			description: expect.stringContaining(githubUser.profile.login),
@@ -111,7 +113,7 @@ test('when a user exists with the same email, create connection and make session
 	const request = await setupRequest({ code: githubUser.code })
 	const response = await loader({ request, params: PARAMS, context: {} })
 
-	expect(response).toHaveRedirect('/settings/profile/connections')
+	expect(response).toHaveRedirect('/')
 
 	await expect(response).toSendToast(
 		expect.objectContaining({
@@ -191,7 +193,7 @@ test('if a user is not logged in, but the connection exists and they have enable
 			userId,
 		},
 	})
-	const { otp: _otp, ...config } = generateTOTP()
+	const { otp: _otp, ...config } = await generateTOTP()
 	await prisma.verification.create({
 		data: {
 			type: twoFAVerificationType,
@@ -204,6 +206,7 @@ test('if a user is not logged in, but the connection exists and they have enable
 	const searchParams = new URLSearchParams({
 		type: twoFAVerificationType,
 		target: userId,
+		redirectTo: '/',
 	})
 	expect(response).toHaveRedirect(`/verify?${searchParams}`)
 })
@@ -216,24 +219,20 @@ async function setupRequest({
 	const state = faker.string.uuid()
 	url.searchParams.set('state', state)
 	url.searchParams.set('code', code)
-
 	const connectionSession = await connectionSessionStorage.getSession()
 	connectionSession.set('oauth2:state', state)
-
-	const cookieSession = await sessionStorage.getSession()
-	if (sessionId) cookieSession.set(sessionKey, sessionId)
-
-	const sessionSetCookieHeader =
-		await sessionStorage.commitSession(cookieSession)
-	const connectionSetCookieHeader =
+	const authSession = await authSessionStorage.getSession()
+	if (sessionId) authSession.set(sessionKey, sessionId)
+	const setSessionCookieHeader =
+		await authSessionStorage.commitSession(authSession)
+	const setConnectionSessionCookieHeader =
 		await connectionSessionStorage.commitSession(connectionSession)
-
 	const request = new Request(url.toString(), {
 		method: 'GET',
 		headers: {
 			cookie: [
-				convertSetCookieToCookie(sessionSetCookieHeader),
-				convertSetCookieToCookie(connectionSetCookieHeader),
+				convertSetCookieToCookie(setConnectionSessionCookieHeader),
+				convertSetCookieToCookie(setSessionCookieHeader),
 			].join('; '),
 		},
 	})

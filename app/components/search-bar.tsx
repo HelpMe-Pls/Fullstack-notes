@@ -32,7 +32,7 @@ export function SearchBar({
 			method="GET"
 			action="/users"
 			className="flex flex-wrap items-center justify-center gap-2"
-			onChange={e => autoSubmit && handleFormChange(e.currentTarget)}
+			onChange={(e) => autoSubmit && handleFormChange(e.currentTarget)}
 		>
 			<div className="flex-1">
 				<Label htmlFor={id} className="sr-only">
@@ -53,9 +53,8 @@ export function SearchBar({
 					type="submit"
 					status={isSubmitting ? 'pending' : status}
 					className="flex w-full items-center justify-center"
-					size="sm"
 				>
-					<Icon name="magnifying-glass" size="sm" />
+					<Icon name="magnifying-glass" size="md" />
 					<span className="sr-only">Search</span>
 				</StatusButton>
 			</div>

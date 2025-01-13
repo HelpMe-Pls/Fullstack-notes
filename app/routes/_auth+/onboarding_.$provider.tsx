@@ -1,17 +1,23 @@
-import { conform, useForm } from '@conform-to/react'
-import { getFieldsetConstraint, parse } from '@conform-to/zod'
 import {
-	json,
+	getFormProps,
+	getInputProps,
+	useForm,
+	type SubmissionResult,
+} from '@conform-to/react'
+import { getZodConstraint, parseWithZod } from '@conform-to/zod'
+import {
 	redirect,
-	type DataFunctionArgs,
+	json,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
 	type MetaFunction,
 } from '@remix-run/node'
 import {
+	type Params,
 	Form,
 	useActionData,
 	useLoaderData,
 	useSearchParams,
-	type Params,
 } from '@remix-run/react'
 import { safeRedirect } from 'remix-utils/safe-redirect'
 import { z } from 'zod'
@@ -20,19 +26,20 @@ import { Spacer } from '#app/components/spacer.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import {
 	authenticator,
-	requireAnonymous,
 	sessionKey,
 	signupWithConnection,
+	requireAnonymous,
 } from '#app/utils/auth.server.ts'
+import { connectionSessionStorage } from '#app/utils/connections.server'
 import { ProviderNameSchema } from '#app/utils/connections.tsx'
 import { prisma } from '#app/utils/db.server.ts'
-import { invariant, useIsPending } from '#app/utils/misc.tsx'
-import { sessionStorage } from '#app/utils/session.server.ts'
+import { useIsPending } from '#app/utils/misc.tsx'
+import { authSessionStorage } from '#app/utils/session.server.ts'
+import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { NameSchema, UsernameSchema } from '#app/utils/user-validation.ts'
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
-import { type VerifyFunctionArgs } from './verify.tsx'
+import { onboardingEmailSessionKey } from './onboarding'
 
-export const onboardingEmailSessionKey = 'onboardingEmail'
 export const providerIdKey = 'providerId'
 export const prefilledProfileKey = 'prefilledProfile'
 
@@ -75,9 +82,9 @@ async function requireData({
 	}
 }
 
-export async function loader({ request, params }: DataFunctionArgs) {
+export async function loader({ request, params }: LoaderFunctionArgs) {
 	const { email } = await requireData({ request, params })
-	const cookieSession = await sessionStorage.getSession(
+	const connectionSession = await connectionSessionStorage.getSession(
 		request.headers.get('cookie'),
 	)
 	const verifySession = await verifySessionStorage.getSession(
@@ -85,22 +92,21 @@ export async function loader({ request, params }: DataFunctionArgs) {
 	)
 	const prefilledProfile = verifySession.get(prefilledProfileKey)
 
-	const formError = cookieSession.get(authenticator.sessionErrorKey)
+	const formError = connectionSession.get(authenticator.sessionErrorKey)
+	const hasError = typeof formError === 'string'
 
 	return json({
 		email,
 		status: 'idle',
 		submission: {
-			intent: '',
-			payload: (prefilledProfile ?? {}) as Record<string, unknown>,
-			error: {
-				'': typeof formError === 'string' ? [formError] : [],
-			},
-		},
+			status: hasError ? 'error' : undefined,
+			initialValue: prefilledProfile ?? {},
+			error: { '': hasError ? [formError] : [] },
+		} as SubmissionResult,
 	})
 }
 
-export async function action({ request, params }: DataFunctionArgs) {
+export async function action({ request, params }: ActionFunctionArgs) {
 	const { email, providerId, providerName } = await requireData({
 		request,
 		params,
@@ -110,7 +116,7 @@ export async function action({ request, params }: DataFunctionArgs) {
 		request.headers.get('cookie'),
 	)
 
-	const submission = await parse(formData, {
+	const submission = await parseWithZod(formData, {
 		schema: SignupFormSchema.superRefine(async (data, ctx) => {
 			const existingUser = await prisma.user.findUnique({
 				where: { username: data.username },
@@ -124,7 +130,7 @@ export async function action({ request, params }: DataFunctionArgs) {
 				})
 				return
 			}
-		}).transform(async data => {
+		}).transform(async (data) => {
 			const session = await signupWithConnection({
 				...data,
 				email,
@@ -136,23 +142,23 @@ export async function action({ request, params }: DataFunctionArgs) {
 		async: true,
 	})
 
-	if (submission.intent !== 'submit') {
-		return json({ status: 'idle', submission } as const)
-	}
-	if (!submission.value?.session) {
-		return json({ status: 'error', submission } as const, { status: 400 })
+	if (submission.status !== 'success') {
+		return json(
+			{ result: submission.reply() },
+			{ status: submission.status === 'error' ? 400 : 200 },
+		)
 	}
 
 	const { session, remember, redirectTo } = submission.value
 
-	const cookieSession = await sessionStorage.getSession(
+	const authSession = await authSessionStorage.getSession(
 		request.headers.get('cookie'),
 	)
-	cookieSession.set(sessionKey, session.id)
+	authSession.set(sessionKey, session.id)
 	const headers = new Headers()
 	headers.append(
 		'set-cookie',
-		await sessionStorage.commitSession(cookieSession, {
+		await authSessionStorage.commitSession(authSession, {
 			expires: remember ? session.expirationDate : undefined,
 		}),
 	)
@@ -161,30 +167,18 @@ export async function action({ request, params }: DataFunctionArgs) {
 		await verifySessionStorage.destroySession(verifySession),
 	)
 
-	return redirect(safeRedirect(redirectTo), { headers })
-}
-
-export async function handleVerification({
-	request,
-	submission,
-}: VerifyFunctionArgs) {
-	invariant(submission.value, 'submission.value should be defined by now')
-	const verifySession = await verifySessionStorage.getSession(
-		request.headers.get('cookie'),
+	return redirectWithToast(
+		safeRedirect(redirectTo),
+		{ title: 'Welcome', description: 'Thanks for signing up!' },
+		{ headers },
 	)
-	verifySession.set(onboardingEmailSessionKey, submission.value.target)
-	return redirect('/onboarding', {
-		headers: {
-			'set-cookie': await verifySessionStorage.commitSession(verifySession),
-		},
-	})
 }
 
 export const meta: MetaFunction = () => {
 	return [{ title: 'Setup Epic Notes Account' }]
 }
 
-export default function SignupRoute() {
+export default function OnboardingProviderRoute() {
 	const data = useLoaderData<typeof loader>()
 	const actionData = useActionData<typeof action>()
 	const isPending = useIsPending()
@@ -192,11 +186,11 @@ export default function SignupRoute() {
 	const redirectTo = searchParams.get('redirectTo')
 
 	const [form, fields] = useForm({
-		id: 'signup-form',
-		constraint: getFieldsetConstraint(SignupFormSchema),
-		lastSubmission: actionData?.submission ?? data.submission,
+		id: 'onboarding-provider-form',
+		constraint: getZodConstraint(SignupFormSchema),
+		lastResult: actionData?.result ?? data.submission,
 		onValidate({ formData }) {
-			return parse(formData, { schema: SignupFormSchema })
+			return parseWithZod(formData, { schema: SignupFormSchema })
 		},
 		shouldRevalidate: 'onBlur',
 	})
@@ -213,26 +207,26 @@ export default function SignupRoute() {
 				<Spacer size="xs" />
 				<Form
 					method="POST"
-					className="mx-auto min-w-[368px] max-w-sm"
-					{...form.props}
+					className="mx-auto min-w-full max-w-sm sm:min-w-[368px]"
+					{...getFormProps(form)}
 				>
-					{fields.imageUrl.defaultValue ? (
+					{fields.imageUrl.initialValue ? (
 						<div className="mb-4 flex flex-col items-center justify-center gap-4">
 							<img
-								src={fields.imageUrl.defaultValue}
+								src={fields.imageUrl.initialValue}
 								alt="Profile"
 								className="h-24 w-24 rounded-full"
 							/>
 							<p className="text-body-sm text-muted-foreground">
 								You can change your photo later
 							</p>
-							<input {...conform.input(fields.imageUrl, { type: 'hidden' })} />
+							<input {...getInputProps(fields.imageUrl, { type: 'hidden' })} />
 						</div>
 					) : null}
 					<Field
 						labelProps={{ htmlFor: fields.username.id, children: 'Username' }}
 						inputProps={{
-							...conform.input(fields.username),
+							...getInputProps(fields.username, { type: 'text' }),
 							autoComplete: 'username',
 							className: 'lowercase',
 						}}
@@ -241,7 +235,7 @@ export default function SignupRoute() {
 					<Field
 						labelProps={{ htmlFor: fields.name.id, children: 'Name' }}
 						inputProps={{
-							...conform.input(fields.name),
+							...getInputProps(fields.name, { type: 'text' }),
 							autoComplete: 'name',
 						}}
 						errors={fields.name.errors}
@@ -253,7 +247,7 @@ export default function SignupRoute() {
 							children:
 								'Do you agree to our Terms of Service and Privacy Policy?',
 						}}
-						buttonProps={conform.input(
+						buttonProps={getInputProps(
 							fields.agreeToTermsOfServiceAndPrivacyPolicy,
 							{ type: 'checkbox' },
 						)}
@@ -264,7 +258,7 @@ export default function SignupRoute() {
 							htmlFor: fields.remember.id,
 							children: 'Remember me',
 						}}
-						buttonProps={conform.input(fields.remember, { type: 'checkbox' })}
+						buttonProps={getInputProps(fields.remember, { type: 'checkbox' })}
 						errors={fields.remember.errors}
 					/>
 
@@ -277,7 +271,7 @@ export default function SignupRoute() {
 					<div className="flex items-center justify-between gap-6">
 						<StatusButton
 							className="w-full"
-							status={isPending ? 'pending' : actionData?.status ?? 'idle'}
+							status={isPending ? 'pending' : (form.status ?? 'idle')}
 							type="submit"
 							disabled={isPending}
 						>

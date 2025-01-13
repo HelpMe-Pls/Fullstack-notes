@@ -17,7 +17,8 @@ function TestComponent() {
 			<output>Default Prevented: {defaultPrevented}</output>
 			<button
 				{...dc.getButtonProps({
-					onClick: e => setDefaultPrevented(e.defaultPrevented ? 'yes' : 'no'),
+					onClick: (e) =>
+						setDefaultPrevented(e.defaultPrevented ? 'yes' : 'no'),
 				})}
 			>
 				{dc.doubleCheck ? 'You sure?' : 'Click me'}
@@ -28,7 +29,7 @@ function TestComponent() {
 
 test('prevents default on the first click, and does not on the second', async () => {
 	const user = userEvent.setup()
-	await render(<TestComponent />)
+	render(<TestComponent />)
 
 	const status = screen.getByRole('status')
 	const button = screen.getByRole('button')
@@ -47,7 +48,7 @@ test('prevents default on the first click, and does not on the second', async ()
 
 test('blurring the button starts things over', async () => {
 	const user = userEvent.setup()
-	await render(<TestComponent />)
+	render(<TestComponent />)
 
 	const status = screen.getByRole('status')
 	const button = screen.getByRole('button')
@@ -65,7 +66,7 @@ test('blurring the button starts things over', async () => {
 
 test('hitting "escape" on the input starts things over', async () => {
 	const user = userEvent.setup()
-	await render(<TestComponent />)
+	render(<TestComponent />)
 
 	const status = screen.getByRole('status')
 	const button = screen.getByRole('button')

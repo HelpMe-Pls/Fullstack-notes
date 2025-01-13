@@ -1,12 +1,13 @@
-import { json, type DataFunctionArgs } from '@remix-run/node'
+import { invariantResponse } from '@epic-web/invariant'
+import { json, type LoaderFunctionArgs } from '@remix-run/node'
 import { Link, NavLink, Outlet, useLoaderData } from '@remix-run/react'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
-import { cn, getUserImgSrc, invariantResponse } from '#app/utils/misc.tsx'
+import { cn, getUserImgSrc } from '#app/utils/misc.tsx'
 import { useOptionalUser } from '#app/utils/user.ts'
 
-export async function loader({ params }: DataFunctionArgs) {
+export async function loader({ params }: LoaderFunctionArgs) {
 	const owner = await prisma.user.findFirst({
 		select: {
 			id: true,
@@ -32,8 +33,8 @@ export default function NotesRoute() {
 		'line-clamp-2 block rounded-l-full py-2 pl-8 pr-6 text-base lg:text-xl'
 	return (
 		<main className="container flex h-full min-h-[400px] px-0 pb-12 md:px-8">
-			<div className="grid w-full grid-cols-5 bg-muted pl-2 md:container sm:grid-cols-4 md:mx-2 md:rounded-3xl md:pr-0">
-				<div className="relative col-span-2 sm:col-span-1">
+			<div className="grid w-full grid-cols-4 bg-muted pl-2 md:container md:rounded-3xl md:pr-0">
+				<div className="relative col-span-1">
 					<div className="absolute inset-0 flex flex-col">
 						<Link
 							to={`/users/${data.owner.username}`}
@@ -61,7 +62,7 @@ export default function NotesRoute() {
 									</NavLink>
 								</li>
 							) : null}
-							{data.owner.notes.map(note => (
+							{data.owner.notes.map((note) => (
 								<li key={note.id} className="p-1 pr-0">
 									<NavLink
 										to={note.id}

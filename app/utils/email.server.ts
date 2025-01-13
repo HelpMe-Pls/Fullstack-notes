@@ -1,8 +1,8 @@
-import { renderAsync } from '@react-email/components'
+import { render } from '@react-email/components'
 import { type ReactElement } from 'react'
 import { z } from 'zod'
 
-const ResendErrorSchema = z.union([
+const resendErrorSchema = z.union([
 	z.object({
 		name: z.string(),
 		message: z.string(),
@@ -15,9 +15,9 @@ const ResendErrorSchema = z.union([
 		cause: z.any(),
 	}),
 ])
-type ResendError = z.infer<typeof ResendErrorSchema>
+type ResendError = z.infer<typeof resendErrorSchema>
 
-const ResendSuccessSchema = z.object({
+const resendSuccessSchema = z.object({
 	id: z.string(),
 })
 
@@ -39,16 +39,29 @@ export async function sendEmail({
 		...(react ? await renderReactEmail(react) : null),
 	}
 
+	// feel free to remove this condition once you've set up resend
+	if (!process.env.RESEND_API_KEY && !process.env.MOCKS) {
+		console.error(`RESEND_API_KEY not set and we're not in mocks mode.`)
+		console.error(
+			`To send emails, set the RESEND_API_KEY environment variable.`,
+		)
+		console.error(`Would have sent the following email:`, JSON.stringify(email))
+		return {
+			status: 'success',
+			data: { id: 'mocked' },
+		} as const
+	}
+
 	const response = await fetch('https://api.resend.com/emails', {
 		method: 'POST',
 		body: JSON.stringify(email),
 		headers: {
 			Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-			'content-type': 'application/json',
+			'Content-Type': 'application/json',
 		},
 	})
 	const data = await response.json()
-	const parsedData = ResendSuccessSchema.safeParse(data)
+	const parsedData = resendSuccessSchema.safeParse(data)
 
 	if (response.ok && parsedData.success) {
 		return {
@@ -56,7 +69,7 @@ export async function sendEmail({
 			data: parsedData,
 		} as const
 	} else {
-		const parseResult = ResendErrorSchema.safeParse(data)
+		const parseResult = resendErrorSchema.safeParse(data)
 		if (parseResult.success) {
 			return {
 				status: 'error',
@@ -78,8 +91,8 @@ export async function sendEmail({
 
 async function renderReactEmail(react: ReactElement) {
 	const [html, text] = await Promise.all([
-		renderAsync(react),
-		renderAsync(react, { plainText: true }),
+		render(react),
+		render(react, { plainText: true }),
 	])
 	return { html, text }
 }

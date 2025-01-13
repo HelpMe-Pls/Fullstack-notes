@@ -4,17 +4,17 @@ import bcrypt from 'bcryptjs'
 import { Authenticator } from 'remix-auth'
 import { safeRedirect } from 'remix-utils/safe-redirect'
 import { connectionSessionStorage, providers } from './connections.server.ts'
-import { type ProviderName } from './connections.tsx'
 import { prisma } from './db.server.ts'
-import { combineResponseInits, downloadFile } from './misc.tsx'
+import { combineHeaders, downloadFile } from './misc.tsx'
 import { type ProviderUser } from './providers/provider.ts'
-import { sessionStorage } from './session.server.ts'
+import { authSessionStorage } from './session.server.ts'
 
 export const SESSION_EXPIRATION_TIME = 1000 * 60 * 60 * 24 * 30
 export const getSessionExpirationDate = () =>
 	new Date(Date.now() + SESSION_EXPIRATION_TIME)
 
 export const sessionKey = 'sessionId'
+
 export const authenticator = new Authenticator<ProviderUser>(
 	connectionSessionStorage,
 )
@@ -24,17 +24,21 @@ for (const [providerName, provider] of Object.entries(providers)) {
 }
 
 export async function getUserId(request: Request) {
-	const cookieSession = await sessionStorage.getSession(
+	const authSession = await authSessionStorage.getSession(
 		request.headers.get('cookie'),
 	)
-	const sessionId = cookieSession.get(sessionKey)
+	const sessionId = authSession.get(sessionKey)
 	if (!sessionId) return null
 	const session = await prisma.session.findUnique({
 		select: { user: { select: { id: true } } },
 		where: { id: sessionId, expirationDate: { gt: new Date() } },
 	})
 	if (!session?.user) {
-		throw await logout({ request })
+		throw redirect('/', {
+			headers: {
+				'set-cookie': await authSessionStorage.destroySession(authSession),
+			},
+		})
 	}
 	return session.user.id
 }
@@ -49,7 +53,7 @@ export async function requireUserId(
 		redirectTo =
 			redirectTo === null
 				? null
-				: redirectTo ?? `${requestUrl.pathname}${requestUrl.search}`
+				: (redirectTo ?? `${requestUrl.pathname}${requestUrl.search}`)
 		const loginParams = redirectTo ? new URLSearchParams({ redirectTo }) : null
 		const loginRedirect = ['/login', loginParams?.toString()]
 			.filter(Boolean)
@@ -64,18 +68,6 @@ export async function requireAnonymous(request: Request) {
 	if (userId) {
 		throw redirect('/')
 	}
-}
-
-export async function requireUser(request: Request) {
-	const userId = await requireUserId(request)
-	const user = await prisma.user.findUnique({
-		select: { id: true, username: true },
-		where: { id: userId },
-	})
-	if (!user) {
-		throw await logout({ request })
-	}
-	return user
 }
 
 export async function login({
@@ -104,7 +96,7 @@ export async function resetUserPassword({
 	username: User['username']
 	password: string
 }) {
-	const hashedPassword = await bcrypt.hash(password, 10)
+	const hashedPassword = await getPasswordHash(password)
 	return prisma.user.update({
 		where: { username },
 		data: {
@@ -165,7 +157,7 @@ export async function signupWithConnection({
 	username: User['username']
 	name: User['name']
 	providerId: Connection['providerId']
-	providerName: ProviderName
+	providerName: Connection['providerName']
 	imageUrl?: string
 }) {
 	const session = await prisma.session.create({
@@ -200,22 +192,24 @@ export async function logout(
 	},
 	responseInit?: ResponseInit,
 ) {
-	const cookieSession = await sessionStorage.getSession(
+	const authSession = await authSessionStorage.getSession(
 		request.headers.get('cookie'),
 	)
-	const sessionId = cookieSession.get(sessionKey)
-	// delete the session if it exists, but don't wait for it, go ahead an log the user out
+	const sessionId = authSession.get(sessionKey)
+	// if this fails, we still need to delete the session from the user's browser
+	// and it doesn't do any harm staying in the db anyway.
 	if (sessionId) {
+		// the .catch is important because that's what triggers the query.
+		// learn more about PrismaPromise: https://www.prisma.io/docs/orm/reference/prisma-client-reference#prismapromise-behavior
 		void prisma.session.deleteMany({ where: { id: sessionId } }).catch(() => {})
 	}
-	throw redirect(
-		safeRedirect(redirectTo),
-		combineResponseInits(responseInit, {
-			headers: {
-				'set-cookie': await sessionStorage.destroySession(cookieSession),
-			},
-		}),
-	)
+	throw redirect(safeRedirect(redirectTo), {
+		...responseInit,
+		headers: combineHeaders(
+			{ 'set-cookie': await authSessionStorage.destroySession(authSession) },
+			responseInit?.headers,
+		),
+	})
 }
 
 export async function getPasswordHash(password: string) {

@@ -1,35 +1,39 @@
-import { generateTOTP } from '@epic-web/totp'
-import { json, redirect, type DataFunctionArgs } from '@remix-run/node'
-import { Link, Form, useLoaderData } from '@remix-run/react'
-import { AuthenticityTokenInput } from 'remix-utils/csrf/react'
+import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import {
+	json,
+	redirect,
+	type LoaderFunctionArgs,
+	type ActionFunctionArgs,
+} from '@remix-run/node'
+import { Link, useFetcher, useLoaderData } from '@remix-run/react'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
-import { validateCSRF } from '#app/utils/csrf.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { useIsPending } from '#app/utils/misc.tsx'
+import { generateTOTP } from '#app/utils/totp.server.ts'
 import { twoFAVerificationType } from './profile.two-factor.tsx'
 import { twoFAVerifyVerificationType } from './profile.two-factor.verify.tsx'
 
-export async function loader({ request }: DataFunctionArgs) {
+export const handle: SEOHandle = {
+	getSitemapEntries: () => null,
+}
+
+export async function loader({ request }: LoaderFunctionArgs) {
 	const userId = await requireUserId(request)
 	const verification = await prisma.verification.findUnique({
 		where: { target_type: { type: twoFAVerificationType, target: userId } },
 		select: { id: true },
 	})
-	return json({ isTwoFAEnabled: Boolean(verification) })
+	return json({ is2FAEnabled: Boolean(verification) })
 }
 
-export async function action({ request }: DataFunctionArgs) {
+export async function action({ request }: ActionFunctionArgs) {
 	const userId = await requireUserId(request)
-	const formData = await request.formData()
-	await validateCSRF(formData, request.headers)
-	const { otp: _otp, ...config } = generateTOTP()
+	const { otp: _otp, ...config } = await generateTOTP()
 	const verificationData = {
 		...config,
 		type: twoFAVerifyVerificationType,
 		target: userId,
-		expiresAt: new Date(Date.now() + 1000 * 60 * 10),
 	}
 	await prisma.verification.upsert({
 		where: {
@@ -43,11 +47,11 @@ export async function action({ request }: DataFunctionArgs) {
 
 export default function TwoFactorRoute() {
 	const data = useLoaderData<typeof loader>()
-	const isPending = useIsPending()
+	const enable2FAFetcher = useFetcher<typeof action>()
 
 	return (
 		<div className="flex flex-col gap-4">
-			{data.isTwoFAEnabled ? (
+			{data.is2FAEnabled ? (
 				<>
 					<p className="text-lg">
 						<Icon name="check">
@@ -74,19 +78,17 @@ export default function TwoFactorRoute() {
 						</a>{' '}
 						to log in.
 					</p>
-					<Form method="POST">
-						<AuthenticityTokenInput />
+					<enable2FAFetcher.Form method="POST">
 						<StatusButton
 							type="submit"
 							name="intent"
 							value="enable"
-							status={isPending ? 'pending' : 'idle'}
-							disabled={isPending}
+							status={enable2FAFetcher.state === 'loading' ? 'pending' : 'idle'}
 							className="mx-auto"
 						>
 							Enable 2FA
 						</StatusButton>
-					</Form>
+					</enable2FAFetcher.Form>
 				</>
 			)}
 		</div>

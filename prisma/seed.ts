@@ -1,6 +1,7 @@
 import { faker } from '@faker-js/faker'
 import { promiseHash } from 'remix-utils/promise'
 import { prisma } from '#app/utils/db.server.ts'
+import { MOCK_CODE_GITHUB } from '#app/utils/providers/constants'
 import {
 	createPassword,
 	createUser,
@@ -14,12 +15,7 @@ async function seed() {
 	console.log('🌱 Seeding...')
 	console.time(`🌱 Database has been seeded`)
 
-	console.time('🧹 Cleaned up the database...')
-	await prisma.user.deleteMany()
-	await prisma.verification.deleteMany()
-	console.timeEnd('🧹 Cleaned up the database...')
-
-	const totalUsers = 3
+	const totalUsers = 5
 	console.time(`👤 Created ${totalUsers} users...`)
 	const noteImages = await getNoteImages()
 	const userImages = await getUserImages()
@@ -36,23 +32,27 @@ async function seed() {
 					roles: { connect: { name: 'user' } },
 					notes: {
 						create: Array.from({
-							length: faker.number.int({ min: 2, max: 4 }),
+							length: faker.number.int({ min: 1, max: 3 }),
 						}).map(() => ({
-							title: faker.lorem.sentence().slice(0, 20).trim(),
+							title: faker.lorem.sentence(),
 							content: faker.lorem.paragraphs(),
 							images: {
 								create: Array.from({
 									length: faker.number.int({ min: 1, max: 3 }),
 								}).map(() => {
 									const imgNumber = faker.number.int({ min: 0, max: 9 })
-									return noteImages[imgNumber]
+									const img = noteImages[imgNumber]
+									if (!img) {
+										throw new Error(`Could not find image #${imgNumber}`)
+									}
+									return img
 								}),
 							},
 						})),
 					},
 				},
 			})
-			.catch(e => {
+			.catch((e) => {
 				console.error('Error creating a user:', e)
 				return null
 			})
@@ -94,14 +94,11 @@ async function seed() {
 		}),
 	})
 
-	const githubUser = await insertGitHubUser('MOCK_GITHUB_CODE_KODY', {
-		primaryEmailAddress: 'kody@kcd.dev',
-	})
+	const githubUser = await insertGitHubUser(MOCK_CODE_GITHUB)
 
 	await prisma.user.create({
 		select: { id: true },
 		data: {
-			id: 'clm7vpwdy001ix76hu0czjiqs',
 			email: 'kody@kcd.dev',
 			username: 'kody',
 			name: 'Kody',
@@ -218,10 +215,16 @@ async function seed() {
 }
 
 seed()
-	.catch(e => {
+	.catch((e) => {
 		console.error(e)
 		process.exit(1)
 	})
 	.finally(async () => {
 		await prisma.$disconnect()
 	})
+
+// we're ok to import from the test directory in this file
+/*
+eslint
+	no-restricted-imports: "off",
+*/

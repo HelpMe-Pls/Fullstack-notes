@@ -4,24 +4,22 @@
 import { faker } from '@faker-js/faker'
 import { createRemixStub } from '@remix-run/testing'
 import { render, screen } from '@testing-library/react'
-import { AuthenticityTokenProvider } from 'remix-utils/csrf/react'
 import setCookieParser from 'set-cookie-parser'
 import { test } from 'vitest'
 import { loader as rootLoader } from '#app/root.tsx'
 import { getSessionExpirationDate, sessionKey } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { sessionStorage } from '#app/utils/session.server.ts'
-import { getUserImages, insertNewUser } from '#tests/db-utils.ts'
+import { authSessionStorage } from '#app/utils/session.server.ts'
+import { createUser, getUserImages } from '#tests/db-utils.ts'
 import { default as UsernameRoute, loader } from './$username.tsx'
 
 test('The user profile when not logged in as self', async () => {
-	const user = await insertNewUser()
 	const userImages = await getUserImages()
 	const userImage =
 		userImages[faker.number.int({ min: 0, max: userImages.length - 1 })]
-	await prisma.user.update({
-		where: { id: user.id },
-		data: { image: { create: userImage } },
+	const user = await prisma.user.create({
+		select: { id: true, username: true, name: true },
+		data: { ...createUser(), image: { create: userImage } },
 	})
 	const App = createRemixStub([
 		{
@@ -32,27 +30,20 @@ test('The user profile when not logged in as self', async () => {
 	])
 
 	const routeUrl = `/users/${user.username}`
-	await render(<App initialEntries={[routeUrl]} />, {
-		wrapper: ({ children }) => (
-			<AuthenticityTokenProvider token="test-csrf-token">
-				{children}
-			</AuthenticityTokenProvider>
-		),
-	})
+	render(<App initialEntries={[routeUrl]} />)
 
-	await screen.findByRole('heading', { level: 1, name: user.name })
-	await screen.findByRole('img', { name: user.name })
+	await screen.findByRole('heading', { level: 1, name: user.name! })
+	await screen.findByRole('img', { name: user.name! })
 	await screen.findByRole('link', { name: `${user.name}'s notes` })
 })
 
 test('The user profile when logged in as self', async () => {
-	const user = await insertNewUser()
 	const userImages = await getUserImages()
 	const userImage =
 		userImages[faker.number.int({ min: 0, max: userImages.length - 1 })]
-	await prisma.user.update({
-		where: { id: user.id },
-		data: { image: { create: userImage } },
+	const user = await prisma.user.create({
+		select: { id: true, username: true, name: true },
+		data: { ...createUser(), image: { create: userImage } },
 	})
 	const session = await prisma.session.create({
 		select: { id: true },
@@ -62,9 +53,9 @@ test('The user profile when logged in as self', async () => {
 		},
 	})
 
-	const cookieSession = await sessionStorage.getSession()
-	cookieSession.set(sessionKey, session.id)
-	const setCookieHeader = await sessionStorage.commitSession(cookieSession)
+	const authSession = await authSessionStorage.getSession()
+	authSession.set(sessionKey, session.id)
+	const setCookieHeader = await authSessionStorage.commitSession(authSession)
 	const parsedCookie = setCookieParser.parseString(setCookieHeader)
 	const cookieHeader = new URLSearchParams({
 		[parsedCookie.name]: parsedCookie.value,
@@ -74,7 +65,7 @@ test('The user profile when logged in as self', async () => {
 		{
 			id: 'root',
 			path: '/',
-			loader: async args => {
+			loader: async (args) => {
 				// add the cookie header to the request
 				args.request.headers.set('cookie', cookieHeader)
 				return rootLoader(args)
@@ -83,7 +74,7 @@ test('The user profile when logged in as self', async () => {
 				{
 					path: 'users/:username',
 					Component: UsernameRoute,
-					loader: async args => {
+					loader: async (args) => {
 						// add the cookie header to the request
 						args.request.headers.set('cookie', cookieHeader)
 						return loader(args)
@@ -94,16 +85,10 @@ test('The user profile when logged in as self', async () => {
 	])
 
 	const routeUrl = `/users/${user.username}`
-	await render(<App initialEntries={[routeUrl]} />, {
-		wrapper: ({ children }) => (
-			<AuthenticityTokenProvider token="test-csrf-token">
-				{children}
-			</AuthenticityTokenProvider>
-		),
-	})
+	await render(<App initialEntries={[routeUrl]} />)
 
-	await screen.findByRole('heading', { level: 1, name: user.name })
-	await screen.findByRole('img', { name: user.name })
+	await screen.findByRole('heading', { level: 1, name: user.name! })
+	await screen.findByRole('img', { name: user.name! })
 	await screen.findByRole('button', { name: /logout/i })
 	await screen.findByRole('link', { name: /my notes/i })
 	await screen.findByRole('link', { name: /edit profile/i })
