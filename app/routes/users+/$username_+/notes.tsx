@@ -4,7 +4,7 @@ import { prisma } from '#app/utils/db.server.ts'
 import { cn, getUserImgSrc } from '#app/utils/misc.tsx'
 import { useOptionalUser } from '#app/utils/user.ts'
 import { invariantResponse } from '@epic-web/invariant'
-import { json, type LoaderFunctionArgs } from '@remix-run/node'
+import { type LoaderFunctionArgs } from '@remix-run/node'
 import { Link, NavLink, Outlet, useLoaderData } from '@remix-run/react'
 
 export async function loader({ params }: LoaderFunctionArgs) {
@@ -21,7 +21,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
 
 	invariantResponse(owner, 'Owner not found', { status: 404 })
 
-	return json({ owner })
+	return { owner }
 }
 
 export default function NotesRoute() {
