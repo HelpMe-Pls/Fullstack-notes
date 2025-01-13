@@ -1,4 +1,3 @@
-import { type MetaFunction } from '@remix-run/node'
 import {
 	Tooltip,
 	TooltipContent,
@@ -6,6 +5,7 @@ import {
 	TooltipTrigger,
 } from '#app/components/ui/tooltip.tsx'
 import { cn } from '#app/utils/misc.tsx'
+import { type MetaFunction } from '@remix-run/node'
 import { logos } from './logos/logos.ts'
 
 export const meta: MetaFunction = () => [{ title: 'Epic Notes' }]
