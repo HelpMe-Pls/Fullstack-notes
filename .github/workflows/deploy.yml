@@ -55,7 +55,7 @@ jobs:
         run: bun run build:icons
 
       - name: 🔎 Type check
-        run: bun run typecheck --if-present
+        run: bun run typecheck
 
   vitest:
     name: ⚡ Vitest
