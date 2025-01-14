@@ -14,7 +14,7 @@ FROM base as deps
 
 WORKDIR /myapp
 
-ADD package.json bun.lockb .npmrc ./
+ADD package.json package-lock.json .npmrc ./
 RUN npm ci --include=dev
 
 # Setup production node_modules
@@ -23,7 +23,7 @@ FROM base as production-deps
 WORKDIR /myapp
 
 COPY --from=deps /myapp/node_modules /myapp/node_modules
-ADD package.json bun.lockb .npmrc ./
+ADD package.json package-lock.json .npmrc ./
 RUN npm prune --omit=dev
 
 # Build the app
@@ -86,7 +86,10 @@ COPY --from=build /myapp/prisma /myapp/prisma
 COPY --from=build /myapp/app/components/ui/icons /myapp/app/components/ui/icons
 
 # prepare for litefs
-VOLUME /litefs
+COPY --from=flyio/litefs:0.5.11 /usr/local/bin/litefs /usr/local/bin/litefs
+ADD other/litefs.yml /etc/litefs.yml
+RUN mkdir -p /data ${LITEFS_DIR}
+
 ADD . .
 
 EXPOSE ${PORT}

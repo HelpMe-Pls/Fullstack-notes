@@ -1,4 +1,4 @@
-app = "fullstack-notes-82c4"
+app = "test-pipeline-41f0"
 primary_region = "sin"
 kill_signal = "SIGINT"
 kill_timeout = 5

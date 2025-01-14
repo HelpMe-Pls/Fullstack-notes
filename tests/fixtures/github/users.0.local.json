@@ -3,36 +3,36 @@
     "code": "MOCK_CODE_GITHUB_KODY",
     "accessToken": "MOCK_CODE_GITHUB_KODY_mock_access_token",
     "profile": {
-      "login": "Joseph_Barton",
-      "id": "6ff3b0ac-1118-414e-82e3-b7c309275de6",
-      "name": "Mrs. Ora Willms",
+      "login": "Kariane72",
+      "id": "ba7f4a90-a1ef-43be-8980-93e02a30f8dd",
+      "name": "Elmer Brown",
       "avatar_url": "https://github.com/ghost.png",
       "emails": [
-        "Darlene_Dietrich@yahoo.com",
-        "Lucienne_Wyman26@yahoo.com",
-        "Darrell.Casper56@hotmail.com"
+        "Irwin_Sipes68@yahoo.com",
+        "Jaylin_OReilly@gmail.com",
+        "Luella38@hotmail.com"
       ]
     },
     "emails": [
       {
-        "email": "Darlene_Dietrich@yahoo.com",
+        "email": "Irwin_Sipes68@yahoo.com",
         "verified": false,
         "primary": false,
         "visibility": "public"
       },
       {
-        "email": "Lucienne_Wyman26@yahoo.com",
+        "email": "Jaylin_OReilly@gmail.com",
         "verified": true,
         "primary": false,
         "visibility": null
       },
       {
-        "email": "Darrell.Casper56@hotmail.com",
+        "email": "Luella38@hotmail.com",
         "verified": true,
         "primary": true,
-        "visibility": null
+        "visibility": "public"
       }
     ],
-    "primaryEmail": "Darrell.Casper56@hotmail.com"
+    "primaryEmail": "Luella38@hotmail.com"
   }
 ]

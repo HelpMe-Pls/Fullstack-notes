@@ -1,6 +1,5 @@
 node_modules
 .DS_store
-.env
 
 /build
 /public/build
@@ -19,6 +18,7 @@ node_modules
 /coverage
 
 /other/cache.db
+bun.lockb
 
 # Easy way to create temporary files/folders that won't accidentally be added to git
 *.local.*
