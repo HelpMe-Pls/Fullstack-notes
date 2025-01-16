@@ -1,11 +1,11 @@
+import { wrapUseRoutesV7 } from '@sentry/react'
+import { useRef } from 'react'
 import {
-	json,
+	data,
+	type LoaderFunctionArgs,
 	type HeadersFunction,
 	type LinksFunction,
-	type LoaderFunctionArgs,
 	type MetaFunction,
-} from '@remix-run/node'
-import {
 	Form,
 	Link,
 	Links,
@@ -16,9 +16,7 @@ import {
 	useLoaderData,
 	useMatches,
 	useSubmit,
-} from '@remix-run/react'
-import { withSentry } from '@sentry/remix'
-import { useRef } from 'react'
+} from 'react-router'
 import { HoneypotProvider } from 'remix-utils/honeypot/react'
 import appleTouchIconAssetUrl from './assets/favicons/apple-touch-icon.png'
 import faviconAssetUrl from './assets/favicons/favicon.svg'
@@ -49,7 +47,7 @@ import { getEnv } from './utils/env.server.ts'
 import { honeypot } from './utils/honeypot.server.ts'
 import { combineHeaders, getDomainUrl, getUserImgSrc } from './utils/misc.tsx'
 import { useNonce } from './utils/nonce-provider.ts'
-import { getTheme, type Theme } from './utils/theme.server.ts'
+import { type Theme, getTheme } from './utils/theme.server.ts'
 import { makeTimings, time } from './utils/timing.server.ts'
 import { getToast } from './utils/toast.server.ts'
 import { useOptionalUser, useUser } from './utils/user.ts'
@@ -121,7 +119,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 	const { toast, headers: toastHeaders } = await getToast(request)
 	const honeyProps = honeypot.getInputProps()
 
-	return json(
+	return data(
 		{
 			user,
 			requestInfo: {
@@ -161,7 +159,8 @@ function Document({
 	children: React.ReactNode
 	nonce: string
 	theme?: Theme
-	env?: Record<string, string>
+	env?: Record<string, string | undefined>
+	allowIndexing?: boolean
 }) {
 	const allowIndexing = ENV.ALLOW_INDEXING !== 'false'
 	return (
@@ -271,7 +270,7 @@ function AppWithProviders() {
 	)
 }
 
-export default withSentry(AppWithProviders)
+export default wrapUseRoutesV7(AppWithProviders)
 
 function UserDropdown() {
 	const user = useUser()
@@ -317,9 +316,9 @@ function UserDropdown() {
 					<DropdownMenuItem
 						asChild
 						// this prevents the menu from closing before the form submission is completed
-						onSelect={(event) => {
+						onSelect={async (event) => {
 							event.preventDefault()
-							submit(formRef.current)
+							await submit(formRef.current)
 						}}
 					>
 						<Form action="/logout" method="POST" ref={formRef}>

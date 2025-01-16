@@ -1,5 +1,10 @@
-import { json, redirect, type LoaderFunctionArgs } from '@remix-run/node'
-import { Link, useLoaderData } from '@remix-run/react'
+import {
+	data,
+	redirect,
+	type LoaderFunctionArgs,
+	Link,
+	useLoaderData,
+} from 'react-router'
 import { z } from 'zod'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { ErrorList } from '#app/components/forms.tsx'
@@ -41,11 +46,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 	const result = UserSearchResultsSchema.safeParse(rawUsers)
 	if (!result.success) {
-		return json({ status: 'error', error: result.error.message } as const, {
+		return data({ status: 'error', error: result.error.message } as const, {
 			status: 400,
 		})
 	}
-	return json({ status: 'idle', users: result.data } as const)
+	return { status: 'idle', users: result.data } as const
 }
 
 export default function UsersRoute() {
@@ -60,7 +65,7 @@ export default function UsersRoute() {
 	}
 
 	return (
-		<div className="container mb-48 mt-36 flex flex-col items-center justify-center gap-6">
+		<div className="container mb-48 mt-32 flex flex-col items-center justify-center gap-6">
 			<h1 className="text-h1">Epic Notes Users</h1>
 			<div className="w-full max-w-[700px]">
 				<SearchBar status={data.status} autoFocus autoSubmit />
