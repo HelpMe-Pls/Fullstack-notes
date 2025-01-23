@@ -1,19 +1,35 @@
 # Introduction
-This project was bootstrapped with the [Epic Stack](https://github.com/epicweb-dev/epic-stack). It is my attempt to learn the full development cycle , and it also serves as a component for my résumé.
+This project was bootstrapped with the [Epic Stack](https://github.com/epicweb-dev/epic-stack). It is my attempt to learn the full development cycle, and it also serves as a component for my résumé.
 
-## Usage
-Visit the [live demo](https://bukshelf.netlify.app), register an account and let curiosity be your guide.
+## How it works
+More often than not, a Remix route module can contain both the UI and the interactions with the models (data entities in the database) in the same file, which leads to seamless developer ergonomics and productivity.
 
-## Caveats
-For the main purpose of demonstrating React's modern best practices, the project uses [Mock Service Worker](https://mswjs.io) and Local Storage to emulate the backend's behavior, therefore, it won't match your expectations of a proper fullstack app.
+Route modules have three primary exports: 
+1. `loader`: for server-side data loading to provide data to your component on GET requests.
+2. `action`: for data mutations. It only runs on the server and handle `POST`, `PUT`, `PATCH`, and `DELETE` requests to provide data to your component.
+3. `default`: the React component that runs both on the server and the client. It will be rendered when a route matches the URL.
 
-I'm still learning [TypeScript](https://react-typescript-cheatsheet.netlify.app/docs/basic/setup/) by building this project, so if you take a closer look, you'll see that I'm ignoring type checking at some of the non-critical parts of the app's functionality as well as a suppression for those cases where I have no clue of how to make TypeScript work *appropriately*. PRs are most welcome if you want to show me your approach to leverage TypeScript's power.
+Checkout the Remix [route convention](https://remix.run/docs/en/main/discussion/routes#conventional-route-folders) and [remix-flat-routes](https://github.com/kiliman/remix-flat-routes) to understand how routing works.
 
-All of the tests are passed, but there are still [`act()` warnings](https://reactjs.org/docs/test-utils.html#act) for some of them. I tried to fix that (and I failed, obviously).
-I highly doubt that there're some underlying dependency conflicts which may have been the cause. Again, if you happen to know how to deal with it, a PR is more than welcome.
+### Example
+Let's see how Remix serves as a fullstack framework by describing what's going on when you click on the "Log In" button on the app's header:
+![Log In button](other/images/image-1.png)
+
+The server-client data flow is defined in the `app/routes/_auth+/login.tsx` file. You can see that:
+- The `loader` function prepares data for initial render
+- The `action` function handles form submissions
+- The `LoginPage` component uses both `loader` and `action` data to render UI and manage state
+- All server-client communication happens through standard HTTP methods (GET/POST)
+- Session state is maintained via cookies
+
+Form submission flow:
+![form submission flow](other/images/image-2.png)
+
+State management flow:
+![state management flow](other/images/image-4.png)
 
 # Installation
-In case you want to run the app locally, make sure to have the same environment as I do to get it working properly. Please download and install these 2 softwares (if you don't have them already):
+If you want to run the app locally, make sure to have the same environment as I do to get it working properly. Please download and install these 2 softwares (if you don't have them already):
 1.  **nvm-setup.zip** from its [latest release](https://github.com/coreybutler/nvm-windows/releases)
 2.  [Git](https://git-scm.com/downloads)
 
@@ -28,61 +44,55 @@ Then open up your terminal with **Admin privilege** and run the following comman
 ## Available Scripts
 In the project directory, you can run:
 
-### `npm start`
+### `npm i`
+Installs all required dependencies to run the app.
+
+### `npm run setup`
+Prepares the database so that the backend can start properly.
+
+### `npm run dev`
 Runs the app in the development mode.\
 Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
 
-The page will reload if you make edits.\
+The page will reload if you make edits in your code and save.\
 You will also see any lint errors in the console.
 
-### `npm t`
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### `npm run test`
+Runs unit tests using [Vitest](https://vitest.dev/guide) in the interactive watch mode.\
+Test files are identified by the `.test.ts` or `.test.tsx` extensions and are located in the `app/routes` and `app/utils` folders.
 
-### `npm run cy:open`
-Run this command on a **separate** terminal instance **after** having your development mode running (with `npm start`) to launch the Cypress E2E test runner. It tests the user's "happy path" as follows:
+### `npm run coverage`
+Runs _all_ tests once (not in watch mode) and generates a coverage report using the [Vitest's](https://vitest.dev/guide/coverage#coverage-setup) built-in coverage reporting.\
+It shows which parts of your code are covered by tests.
 
-1. Arrive at the app and register
-2. Go to the discover page and search for a book
-3. Add that book to the reading list
-4. Go to the reading list and then go to the book page
-5. Add some notes
-6. Mark the book as read
-7. Give the book a 5 star rating
-8. Go to the finished books screen
-9. Verify the book shows up and has a 5 star rating
-10. Click the book to go back to it's page
-11. Remove it from the reading list
-12. Make sure the notes and rating are gone
-13. Go to the finished books screen and make sure that list is empty
+### `npm run test:e2e:run`
+Runs end-to-end tests using Playwright. Test files are located in the `./tests/e2e` folder.\
+You must run the `npm run build` or `npm run pretest:e2e:run` and stop your dev server _before_ running this command.  
 
 ### `npm run build`
 Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+It runs all build scripts sequentially by using the `run-s` command from the `npm-run-all` package.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+Once the `build` folder is created, you can run the app locally in production mode with the `npm start` command.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+# Deployment
+According to the [documentation](https://github.com/epicweb-dev/epic-stack/blob/main/docs/deployment.md#deploying-to-flyio), you can also deploy to Fly.io. Notice that there's a trial period for using their services.
 
+For the purpose of learning the fullstack development cycle, deploying with a Docker image is an essential skill to have.
+
+# Scaling
+If you're running a single instance, LiteFS (configured in Dockerfile) will still work but won't be replicating data (since Docker volume is sufficient).
+
+If you later decide to scale to multiple instances, having LiteFS already configured (in the `other/litefs.yml` file) will make the transition easier.
 
 # Documentation
-To *quickly* learn React, check out the [React documentation](https://beta.reactjs.org/learn).\
-For a paid course, I highly recommend the Kent C. Dodds [Epic React course](https://epicreact.dev).\
+To *quickly* learn React for free, check out the [React documentation](https://react.dev/learn).\
+For a paid course, I highly recommend [The Joy of React](https://www.joyofreact.com) course.\
 My personal preference of a [learning path](https://www.reactiflux.com/learning) to become a React Frontend developer.
 
-Check out [the notes](https://github.com/HelpMe-Pls/bookshelf/blob/master/WIL.md) that I had throughout the process of building this project.\
-My collection of React specific topics:
-
-- [The fundamentals](https://github.com/HelpMe-Pls/react-fundamentals/blob/master/README.md)
-- [Hooks](https://github.com/HelpMe-Pls/react-hooks/blob/master/README.md)
-- [Advanced hooks](https://github.com/HelpMe-Pls/advanced-react-hooks/blob/master/README.md)
-- [Design Patterns](https://github.com/HelpMe-Pls/advanced-react-patterns/blob/master/README.md)
-- [Performance](https://github.com/HelpMe-Pls/react-performance/blob/master/README.md)
-- [Concurrency](https://github.com/HelpMe-Pls/react-suspense/blob/master/README.md)
-- [Testing](https://github.com/HelpMe-Pls/testing-react-apps/blob/master/README.md)
+Checkout the [reasons](https://remix.run/docs/en/main/discussion/introduction) why I chose Remix as a framework to learn about fullstack development.
 
 # Contributing
-Pull requests are most welcome. For breaking changes suggestion, please open an issue first to discuss what you would like to change/improve.
+Pull requests are most welcome. For breaking changes suggestion, please open an issue first to discuss what you would like to change or improve.
 
 [Contact me](https://www.facebook.com/messages/t/100005341874318) if you need further support.
