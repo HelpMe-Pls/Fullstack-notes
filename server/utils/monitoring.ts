@@ -1,6 +1,10 @@
-import { prismaIntegration, httpIntegration } from '@sentry/node'
+import prismaInstrumentation from '@prisma/instrumentation'
 import { nodeProfilingIntegration } from '@sentry/profiling-node'
-import * as Sentry from '@sentry/react'
+import * as Sentry from '@sentry/react-router'
+
+// prisma's exports are wrong...
+// https://github.com/prisma/prisma/issues/23410
+const { PrismaInstrumentation } = prismaInstrumentation
 
 export function init() {
 	Sentry.init({
@@ -18,8 +22,10 @@ export function init() {
 			/\/site\.webmanifest/,
 		],
 		integrations: [
-			prismaIntegration(),
-			httpIntegration(),
+			Sentry.prismaIntegration({
+				prismaInstrumentation: new PrismaInstrumentation(),
+			}),
+			Sentry.httpIntegration(),
 			nodeProfilingIntegration(),
 		],
 		tracesSampler(samplingContext) {

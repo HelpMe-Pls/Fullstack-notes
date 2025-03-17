@@ -1,21 +1,14 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import {
-	data,
-	redirect,
-	type LoaderFunctionArgs,
-	type ActionFunctionArgs,
-	Form,
-	Link,
-	useActionData,
-} from 'react-router'
+import { data, redirect, Form, Link } from 'react-router'
 import { z } from 'zod'
 import { ErrorList, Field } from '#app/components/forms.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import {
+	checkCommonPassword,
 	getPasswordHash,
 	requireUserId,
 	verifyUserPassword,
@@ -24,6 +17,7 @@ import { prisma } from '#app/utils/db.server.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { PasswordSchema } from '#app/utils/user-validation.ts'
+import { type Route } from './+types/profile.password.ts'
 import { type BreadcrumbHandle } from './profile.tsx'
 
 export const handle: BreadcrumbHandle & SEOHandle = {
@@ -57,13 +51,13 @@ async function requirePassword(userId: string) {
 	}
 }
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request }: Route.LoaderArgs) {
 	const userId = await requireUserId(request)
 	await requirePassword(userId)
 	return {}
 }
 
-export async function action({ request }: ActionFunctionArgs) {
+export async function action({ request }: Route.ActionArgs) {
 	const userId = await requireUserId(request)
 	await requirePassword(userId)
 	const formData = await request.formData()
@@ -78,6 +72,14 @@ export async function action({ request }: ActionFunctionArgs) {
 							path: ['currentPassword'],
 							code: z.ZodIssueCode.custom,
 							message: 'Incorrect password.',
+						})
+					}
+					const isCommonPassword = await checkCommonPassword(newPassword)
+					if (isCommonPassword) {
+						ctx.addIssue({
+							path: ['newPassword'],
+							code: 'custom',
+							message: 'Password is too common',
 						})
 					}
 				}
@@ -120,8 +122,9 @@ export async function action({ request }: ActionFunctionArgs) {
 	)
 }
 
-export default function ChangePasswordRoute() {
-	const actionData = useActionData<typeof action>()
+export default function ChangePasswordRoute({
+	actionData,
+}: Route.ComponentProps) {
 	const isPending = useIsPending()
 
 	const [form, fields] = useForm({

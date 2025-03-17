@@ -1,14 +1,13 @@
-import crypto from 'node:crypto'
+import { styleText } from 'node:util'
+import { helmet } from '@nichtsam/helmet/node-http'
 import { createRequestHandler } from '@react-router/express'
-import * as Sentry from '@sentry/react'
+import * as Sentry from '@sentry/react-router'
 import { ip as ipAddress } from 'address'
-import chalk from 'chalk'
 import closeWithGrace from 'close-with-grace'
 import compression from 'compression'
 import express from 'express'
 import rateLimit from 'express-rate-limit'
 import getPort, { portNumbers } from 'get-port'
-import helmet from 'helmet'
 import morgan from 'morgan'
 import { type ServerBuild } from 'react-router'
 
@@ -68,6 +67,12 @@ app.use(compression())
 // http://expressjs.com/en/advanced/best-practice-security.html#at-a-minimum-disable-x-powered-by-header
 app.disable('x-powered-by')
 
+app.use((_, res, next) => {
+	// The referrerPolicy breaks our redirectTo logic
+	helmet(res, { general: { referrerPolicy: false } })
+	next()
+})
+
 if (viteDevServer) {
 	app.use(viteDevServer.middlewares)
 } else {
@@ -88,52 +93,19 @@ app.get(['/img/*', '/favicons/*'], (_req, res) => {
 	return res.status(404).send('Not found')
 })
 
-morgan.token('url', (req) => decodeURIComponent(req.url ?? ''))
+morgan.token('url', (req) => {
+	try {
+		return decodeURIComponent(req.url ?? '')
+	} catch {
+		return req.url ?? ''
+	}
+})
 app.use(
 	morgan('tiny', {
 		skip: (req, res) =>
 			res.statusCode === 200 &&
-			(req.url?.startsWith('/resources/note-images') ||
-				req.url?.startsWith('/resources/user-images') ||
+			(req.url?.startsWith('/resources/images') ||
 				req.url?.startsWith('/resources/healthcheck')),
-	}),
-)
-
-app.use((_, res, next) => {
-	res.locals.cspNonce = crypto.randomBytes(16).toString('hex')
-	next()
-})
-
-app.use(
-	helmet({
-		xPoweredBy: false,
-		referrerPolicy: { policy: 'same-origin' },
-		crossOriginEmbedderPolicy: false,
-		contentSecurityPolicy: {
-			// NOTE: Remove reportOnly when you're ready to enforce this CSP
-			reportOnly: true,
-			directives: {
-				'connect-src': [
-					MODE === 'development' ? 'ws:' : null,
-					process.env.SENTRY_DSN ? '*.sentry.io' : null,
-					"'self'",
-				].filter(Boolean),
-				'font-src': ["'self'"],
-				'frame-src': ["'self'"],
-				'img-src': ["'self'", 'data:'],
-				'script-src': [
-					"'strict-dynamic'",
-					"'self'",
-					// @ts-expect-error
-					(_, res) => `'nonce-${res.locals.cspNonce}'`,
-				],
-				'script-src-attr': [
-					// @ts-expect-error
-					(_, res) => `'nonce-${res.locals.cspNonce}'`,
-				],
-				'upgrade-insecure-requests': null,
-			},
-		},
 	}),
 )
 
@@ -148,7 +120,7 @@ const rateLimitDefault = {
 	standardHeaders: true,
 	legacyHeaders: false,
 	validate: { trustProxy: false },
-	// Malicious users can spoof their IP address which means we should not deault
+	// Malicious users can spoof their IP address which means we should not default
 	// to trusting req.ip when hosted on Fly.io. However, users cannot spoof Fly-Client-Ip.
 	// When sitting behind a CDN such as cloudflare, replace fly-client-ip with the CDN
 	// specific header such as cf-connecting-ip
@@ -223,10 +195,7 @@ if (!ALLOW_INDEXING) {
 app.all(
 	'*',
 	createRequestHandler({
-		getLoadContext: (_: any, res: any) => ({
-			cspNonce: res.locals.cspNonce,
-			serverBuild: getBuild(),
-		}),
+		getLoadContext: () => ({ serverBuild: getBuild() }),
 		mode: MODE,
 		build: async () => {
 			const { error, build } = await getBuild()
@@ -252,7 +221,8 @@ if (!portAvailable && !IS_DEV) {
 const server = app.listen(portToUse, () => {
 	if (!portAvailable) {
 		console.warn(
-			chalk.yellow(
+			styleText(
+				'yellow',
 				`⚠️  Port ${desiredPort} is not available, using ${portToUse} instead.`,
 			),
 		)
@@ -270,9 +240,9 @@ const server = app.listen(portToUse, () => {
 
 	console.log(
 		`
-${chalk.bold('Local:')}            ${chalk.cyan(localUrl)}
-${lanUrl ? `${chalk.bold('On Your Network:')}  ${chalk.cyan(lanUrl)}` : ''}
-${chalk.bold('Press Ctrl+C to stop')}
+${styleText('bold', 'Local:')}            ${styleText('cyan', localUrl)}
+${lanUrl ? `${styleText('bold', 'On Your Network:')}  ${styleText('cyan', lanUrl)}` : ''}
+${styleText('bold', 'Press Ctrl+C to stop')}
 		`.trim(),
 	)
 })
@@ -282,8 +252,8 @@ closeWithGrace(async ({ err }) => {
 		server.close((e) => (e ? reject(e) : resolve('ok')))
 	})
 	if (err) {
-		console.error(chalk.red(err))
-		console.error(chalk.red(err.stack))
+		console.error(styleText('red', String(err)))
+		console.error(styleText('red', String(err.stack)))
 		if (SENTRY_ENABLED) {
 			Sentry.captureException(err)
 			await Sentry.flush(500)

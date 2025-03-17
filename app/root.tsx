@@ -1,12 +1,6 @@
-import { wrapUseRoutesV7 } from '@sentry/react'
-import { useRef } from 'react'
+import { OpenImgContextProvider } from 'openimg/react'
 import {
 	data,
-	type LoaderFunctionArgs,
-	type HeadersFunction,
-	type LinksFunction,
-	type MetaFunction,
-	Form,
 	Link,
 	Links,
 	Meta,
@@ -15,9 +9,9 @@ import {
 	ScrollRestoration,
 	useLoaderData,
 	useMatches,
-	useSubmit,
 } from 'react-router'
 import { HoneypotProvider } from 'remix-utils/honeypot/react'
+import { type Route } from './+types/root.ts'
 import appleTouchIconAssetUrl from './assets/favicons/apple-touch-icon.png'
 import faviconAssetUrl from './assets/favicons/favicon.svg'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
@@ -25,15 +19,9 @@ import { EpicProgress } from './components/progress-bar.tsx'
 import { SearchBar } from './components/search-bar.tsx'
 import { useToast } from './components/toaster.tsx'
 import { Button } from './components/ui/button.tsx'
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuPortal,
-	DropdownMenuTrigger,
-} from './components/ui/dropdown-menu.tsx'
-import { Icon, href as iconsHref } from './components/ui/icon.tsx'
+import { href as iconsHref } from './components/ui/icon.tsx'
 import { EpicToaster } from './components/ui/sonner.tsx'
+import { UserDropdown } from './components/user-dropdown.tsx'
 import {
 	ThemeSwitch,
 	useOptionalTheme,
@@ -44,15 +32,16 @@ import { getUserId, logout } from './utils/auth.server.ts'
 import { ClientHintCheck, getHints } from './utils/client-hints.tsx'
 import { prisma } from './utils/db.server.ts'
 import { getEnv } from './utils/env.server.ts'
+import { pipeHeaders } from './utils/headers.server.ts'
 import { honeypot } from './utils/honeypot.server.ts'
-import { combineHeaders, getDomainUrl, getUserImgSrc } from './utils/misc.tsx'
+import { combineHeaders, getDomainUrl, getImgSrc } from './utils/misc.tsx'
 import { useNonce } from './utils/nonce-provider.ts'
 import { type Theme, getTheme } from './utils/theme.server.ts'
 import { makeTimings, time } from './utils/timing.server.ts'
 import { getToast } from './utils/toast.server.ts'
-import { useOptionalUser, useUser } from './utils/user.ts'
+import { useOptionalUser } from './utils/user.ts'
 
-export const links: LinksFunction = () => {
+export const links: Route.LinksFunction = () => {
 	return [
 		// Preload svg sprite as a resource to avoid render blocking
 		{ rel: 'preload', href: iconsHref, as: 'image' },
@@ -72,14 +61,14 @@ export const links: LinksFunction = () => {
 	].filter(Boolean)
 }
 
-export const meta: MetaFunction<typeof loader> = ({ data }) => {
+export const meta: Route.MetaFunction = ({ data }) => {
 	return [
 		{ title: data ? 'Epic Notes' : 'Error | Epic Notes' },
 		{ name: 'description', content: `Your own captain's log` },
 	]
 }
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request }: Route.LoaderArgs) {
 	const timings = makeTimings('root loader')
 	const userId = await time(() => getUserId(request), {
 		timings,
@@ -90,12 +79,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
 	const user = userId
 		? await time(
 				() =>
-					prisma.user.findUniqueOrThrow({
+					prisma.user.findUnique({
 						select: {
 							id: true,
 							name: true,
 							username: true,
-							image: { select: { id: true } },
+							image: { select: { objectKey: true } },
 							roles: {
 								select: {
 									name: true,
@@ -117,7 +106,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 		await logout({ request, redirectTo: '/' })
 	}
 	const { toast, headers: toastHeaders } = await getToast(request)
-	const honeyProps = honeypot.getInputProps()
+	const honeyProps = await honeypot.getInputProps()
 
 	return data(
 		{
@@ -136,32 +125,26 @@ export async function loader({ request }: LoaderFunctionArgs) {
 		},
 		{
 			headers: combineHeaders(
-				{ 'Server-Timing': timings.toString() },
+				{ 'Server-Timing': JSON.stringify(timings) },
 				toastHeaders,
 			),
 		},
 	)
 }
 
-export const headers: HeadersFunction = ({ loaderHeaders }) => {
-	const headers = {
-		'Server-Timing': loaderHeaders.get('Server-Timing') ?? '',
-	}
-	return headers
-}
+export const headers: Route.HeadersFunction = pipeHeaders
 
 function Document({
 	children,
 	nonce,
 	theme = 'light',
 	env = {},
-}: {
+}: Readonly<{
 	children: React.ReactNode
 	nonce: string
 	theme?: Theme
 	env?: Record<string, string | undefined>
-	allowIndexing?: boolean
-}) {
+}>) {
 	const allowIndexing = ENV.ALLOW_INDEXING !== 'false'
 	return (
 		<html lang="en" className={`${theme} h-full overflow-x-hidden`}>
@@ -190,7 +173,7 @@ function Document({
 	)
 }
 
-export function Layout({ children }: { children: React.ReactNode }) {
+export function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
 	// if there was an error running the loader, data could be missing
 	const data = useLoaderData<typeof loader | null>()
 	const nonce = useNonce()
@@ -212,7 +195,10 @@ function App() {
 	useToast(data.toast)
 
 	return (
-		<>
+		<OpenImgContextProvider
+			optimizerEndpoint="/resources/images"
+			getSrc={getImgSrc}
+		>
 			<div className="flex min-h-screen flex-col justify-between">
 				<header className="container sticky top-0 bg-transparent py-6 backdrop-blur-sm">
 					<nav className="flex flex-wrap items-center justify-between gap-4 sm:flex-nowrap md:gap-8">
@@ -233,7 +219,7 @@ function App() {
 					</nav>
 				</header>
 
-				<div className="h-full flex-1">
+				<div className="flex flex-1 flex-col">
 					<Outlet />
 				</div>
 
@@ -244,7 +230,7 @@ function App() {
 			</div>
 			<EpicToaster closeButton position="top-center" theme={theme} />
 			<EpicProgress />
-		</>
+		</OpenImgContextProvider>
 	)
 }
 
@@ -270,68 +256,7 @@ function AppWithProviders() {
 	)
 }
 
-export default wrapUseRoutesV7(AppWithProviders)
-
-function UserDropdown() {
-	const user = useUser()
-	const submit = useSubmit()
-	const formRef = useRef<HTMLFormElement>(null)
-	return (
-		<DropdownMenu>
-			<DropdownMenuTrigger asChild>
-				<Button asChild variant="secondary">
-					<Link
-						to={`/users/${user.username}`}
-						// this is for progressive enhancement
-						onClick={(e) => e.preventDefault()}
-						className="flex items-center gap-2"
-					>
-						<img
-							className="h-8 w-8 rounded-full object-cover"
-							alt={user.name ?? user.username}
-							src={getUserImgSrc(user.image?.id)}
-						/>
-						<span className="text-body-sm font-bold">
-							{user.name ?? user.username}
-						</span>
-					</Link>
-				</Button>
-			</DropdownMenuTrigger>
-			<DropdownMenuPortal>
-				<DropdownMenuContent sideOffset={8} align="start">
-					<DropdownMenuItem asChild>
-						<Link prefetch="intent" to={`/users/${user.username}`}>
-							<Icon className="text-body-md" name="avatar">
-								Profile
-							</Icon>
-						</Link>
-					</DropdownMenuItem>
-					<DropdownMenuItem asChild>
-						<Link prefetch="intent" to={`/users/${user.username}/notes`}>
-							<Icon className="text-body-md" name="pencil-2">
-								Notes
-							</Icon>
-						</Link>
-					</DropdownMenuItem>
-					<DropdownMenuItem
-						asChild
-						// this prevents the menu from closing before the form submission is completed
-						onSelect={async (event) => {
-							event.preventDefault()
-							await submit(formRef.current)
-						}}
-					>
-						<Form action="/logout" method="POST" ref={formRef}>
-							<Icon className="text-body-md" name="exit">
-								<button type="submit">Logout</button>
-							</Icon>
-						</Form>
-					</DropdownMenuItem>
-				</DropdownMenuContent>
-			</DropdownMenuPortal>
-		</DropdownMenu>
-	)
-}
+export default AppWithProviders
 
 // this is a last resort error boundary. There's not much useful information we
 // can offer at this level.

@@ -2,7 +2,8 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["typedSql"]
 }
 
 datasource db {
@@ -25,6 +26,7 @@ model User {
   roles       Role[]
   sessions    Session[]
   connections Connection[]
+  passkey     Passkey[]
 }
 
 model Note {
@@ -47,10 +49,9 @@ model Note {
 }
 
 model NoteImage {
-  id          String  @id @default(cuid())
-  altText     String?
-  contentType String
-  blob        Bytes
+  id        String  @id @default(cuid())
+  altText   String?
+  objectKey String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -63,10 +64,9 @@ model NoteImage {
 }
 
 model UserImage {
-  id          String  @id @default(cuid())
-  altText     String?
-  contentType String
-  blob        Bytes
+  id        String  @id @default(cuid())
+  altText   String?
+  objectKey String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -166,4 +166,21 @@ model Connection {
   userId String
 
   @@unique([providerName, providerId])
+}
+
+model Passkey {
+  id             String   @id
+  aaguid         String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  publicKey      Bytes
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String
+  webauthnUserId String
+  counter        BigInt
+  deviceType     String // 'singleDevice' or 'multiDevice'
+  backedUp       Boolean
+  transports     String? // Stored as comma-separated values
+
+  @@index(userId)
 }

@@ -2,8 +2,8 @@ node_modules
 .DS_store
 
 /build
+/public/build
 /server-build
-.react-router/
 .env
 .cache
 
@@ -18,10 +18,12 @@ node_modules
 /coverage
 
 /other/cache.db
-bun.lockb
 
 # Easy way to create temporary files/folders that won't accidentally be added to git
 *.local.*
 
 # generated files
 /app/components/ui/icons
+
+# react router v7 generated types
+.react-router
