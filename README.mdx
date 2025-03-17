@@ -11,6 +11,13 @@ Route modules have three primary exports:
 
 Checkout the Remix [route convention](https://remix.run/docs/en/main/discussion/routes#conventional-route-folders) and [remix-flat-routes](https://github.com/kiliman/remix-flat-routes) to understand how routing works.
 
+Basically, remix-flat-routes hybrid routing allows us to get the best of both worlds:
+
+1. Colocation of routes to the code they use
+2. Organized folder structure to keep routes together as needed
+
+You can run `npx remix routes` from the root of the app and it will output the routes of your application in a JSX-like output that will reveal the routes that will be generated based on your current file structure.
+
 ### Example
 Let's see how Remix serves as a fullstack framework by describing what's going on when you click on the "Log In" button on the app's header:
 ![Log In button](other/images/image-1.png)
