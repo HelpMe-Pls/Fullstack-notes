@@ -49,6 +49,11 @@ jobs:
       - name: ⬇️ Checkout repo
         uses: actions/checkout@v4
 
+      - name: ⎔ Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
       - name: ⎔ Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -67,7 +72,7 @@ jobs:
         run: bunx prisma migrate deploy && bunx prisma generate --sql
 
       - name: 🔎 Type check
-        run: bun run typecheck --if-present
+        run: bun run typecheck
 
   vitest:
     name: ⚡ Vitest
