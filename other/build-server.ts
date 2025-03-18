@@ -69,7 +69,7 @@ import 'dotenv/config';
 console.log('Server starting with fallback index.js...');
 
 const app = express();
-const port = process.env.PORT || 8080;
+const port = process.env.PORT || 8081;
 
 // Basic route for health checks
 app.get('/', (req, res) => {
