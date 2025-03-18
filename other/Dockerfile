@@ -56,7 +56,9 @@ RUN --mount=type=secret,id=SENTRY_AUTH_TOKEN \
   bun run build:server && \
   echo "Build completed, checking directories:" && \
   ls -la /myapp && \
-  ls -la /myapp/server-build || true
+  ls -la /myapp/server-build && \
+  echo "Contents of server-build:" && \
+  ls -la /myapp/server-build/
 
 # Finally, build the production image with minimal footprint
 FROM base
@@ -88,17 +90,23 @@ RUN INTERNAL_COMMAND_TOKEN=$(openssl rand -hex 32) && \
 COPY --from=production-deps /myapp/node_modules /myapp/node_modules
 COPY --from=build /myapp/node_modules/.prisma /myapp/node_modules/.prisma
 
+# Copy all necessary build files
 COPY --from=build /myapp/server-build /myapp/server-build
 COPY --from=build /myapp/build /myapp/build
 COPY --from=build /myapp/package.json /myapp/package.json
 COPY --from=build /myapp/prisma /myapp/prisma
 COPY --from=build /myapp/app/components/ui/icons /myapp/app/components/ui/icons
+COPY --from=build /myapp/index.js /myapp/index.js
 
 # prepare for litefs
 COPY --from=flyio/litefs:0.5.11 /usr/local/bin/litefs /usr/local/bin/litefs
 ADD other/litefs.yml /etc/litefs.yml
 RUN mkdir -p /data ${LITEFS_DIR}
 
-ADD . .
+# Verify the server build files exist
+RUN echo "Checking server build files:" && \
+    ls -la /myapp/server-build/ && \
+    echo "Checking index.js:" && \
+    ls -la /myapp/index.js
 
 CMD ["litefs", "mount"]
