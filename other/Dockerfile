@@ -7,7 +7,7 @@ FROM oven/bun:1-slim as base
 ENV NODE_ENV production
 
 # Install dependencies for Prisma & sqlite3
-RUN apt-get update && apt-get install -y fuse3 openssl sqlite3 ca-certificates python3
+RUN apt-get update && apt-get install -y fuse3 openssl sqlite3 ca-certificates python3 build-essential
 
 # Install all node_modules, including dev dependencies
 FROM base as deps
