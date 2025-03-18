@@ -81,22 +81,22 @@ jobs:
       - name: ⬇️ Checkout repo
         uses: actions/checkout@v4
 
-      - name: ⎔ Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - name: ⎔ Setup Node
+        uses: actions/setup-node@v4
         with:
-          bun-version: latest
+          node-version: '22.x'
 
       - name: 📥 Download deps
-        run: bun i
+        run: npm install
 
       - name: 🏄 Copy test env vars
         run: cp .env.example .env
 
       - name: 🖼 Build icons
-        run: bun run build:icons
+        run: npm run build:icons
 
       - name: 🛠 Setup Database
-        run: bunx prisma migrate deploy && bunx prisma generate --sql
+        run: npx prisma migrate deploy && npx prisma generate --sql
 
       - name: ⚡ Run vitest
         run: npm run test -- --coverage
