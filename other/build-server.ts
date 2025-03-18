@@ -1,10 +1,8 @@
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import esbuild from 'esbuild'
 import fsExtra from 'fs-extra'
 import { globSync } from 'glob'
-
-const pkg = fsExtra.readJsonSync(path.join(process.cwd(), 'package.json'))
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const here = (...s: Array<string>) => path.join(__dirname, ...s)
@@ -38,7 +36,7 @@ esbuild
 	.build({
 		entryPoints: entries,
 		outdir: here('../server-build'),
-		target: [`node${pkg.engines.node}`],
+		target: ['esnext'],
 		platform: 'node',
 		sourcemap: true,
 		format: 'esm',
