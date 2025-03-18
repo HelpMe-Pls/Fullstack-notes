@@ -80,7 +80,6 @@
     "compression": "^1.8.0",
     "cookie": "^1.0.2",
     "cross-env": "^7.0.3",
-    "crypto": "^1.0.1",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
     "execa": "^9.5.2",

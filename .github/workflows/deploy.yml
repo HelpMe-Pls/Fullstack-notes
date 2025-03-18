@@ -99,7 +99,7 @@ jobs:
         run: bunx prisma migrate deploy && bunx prisma generate --sql
 
       - name: ⚡ Run vitest
-        run: bun run test -- --coverage
+        run: npm run test -- --coverage
 
   playwright:
     name: 🎭 Playwright
