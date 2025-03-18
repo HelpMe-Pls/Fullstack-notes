@@ -56,6 +56,22 @@ esbuild
 		logLevel: 'info',
 		bundle: true,
 		outbase: here('../server'),
+		// Exclude native modules and problematic dependencies
+		external: [
+			'@sentry-internal/node-cpu-profiler',
+			'lightningcss',
+			'@prisma/client',
+			'better-sqlite3',
+			'bcryptjs',
+			'express',
+			'compression',
+			'morgan',
+			'express-rate-limit',
+			'get-port',
+			'helmet',
+		],
+		// Don't try to bundle node_modules
+		packages: 'external',
 	})
 	.then(() => {
 		console.log('Build completed successfully')
