@@ -52,7 +52,6 @@ RUN --mount=type=secret,id=SENTRY_AUTH_TOKEN \
   echo "Running full build..." && \
   bun run build:icons && \
   bun run build:remix && \
-  mkdir -p /myapp/server-build && \
   echo "Building server..." && \
   bun run build:server && \
   echo "Build completed, checking directories:" && \
@@ -62,7 +61,7 @@ RUN --mount=type=secret,id=SENTRY_AUTH_TOKEN \
   echo "Checking server-build contents:" && \
   find /myapp/server-build -type f -name "*.js" && \
   echo "Checking if index.js exists:" && \
-  ls -la /myapp/server-build/index.js || echo "index.js not found!"
+  ls -la /myapp/server-build/index.js || (echo "index.js not found!" && exit 1)
 
 # Finally, build the production image with minimal footprint
 FROM base
@@ -111,7 +110,7 @@ RUN mkdir -p /data ${LITEFS_DIR}
 RUN echo "Checking server build files:" && \
     ls -la /myapp/server-build/ && \
     echo "Checking if index.js exists:" && \
-    ls -la /myapp/server-build/index.js || echo "index.js not found!" && \
+    ls -la /myapp/server-build/index.js || (echo "index.js not found!" && exit 1) && \
     echo "Checking index.js:" && \
     ls -la /myapp/index.js
 
