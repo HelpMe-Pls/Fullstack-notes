@@ -101,7 +101,7 @@ jobs:
         run: bun run build:icons
 
       - name: 🛠 Setup Database
-        run: npx prisma migrate deploy && npx prisma generate --sql
+        run: bunx prisma migrate deploy && bunx prisma generate --sql
 
       - name: ⚡ Run vitest
         run: npm run test -- --coverage
@@ -134,7 +134,7 @@ jobs:
         run: bunx playwright install --with-deps chromium
 
       - name: 🛠 Setup Database
-        run: npx prisma migrate deploy && npx prisma generate --sql
+        run: bunx prisma migrate deploy && bunx prisma generate --sql
 
       - name: 🏦 Cache Database
         id: db-cache
