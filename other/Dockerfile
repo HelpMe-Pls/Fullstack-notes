@@ -53,12 +53,16 @@ RUN --mount=type=secret,id=SENTRY_AUTH_TOKEN \
   bun run build:icons && \
   bun run build:remix && \
   mkdir -p /myapp/server-build && \
+  echo "Building server..." && \
   bun run build:server && \
   echo "Build completed, checking directories:" && \
   ls -la /myapp && \
-  ls -la /myapp/server-build && \
-  echo "Contents of server-build:" && \
-  ls -la /myapp/server-build/
+  echo "Checking server-build directory:" && \
+  ls -la /myapp/server-build/ && \
+  echo "Checking server-build contents:" && \
+  find /myapp/server-build -type f -name "*.js" && \
+  echo "Checking if index.js exists:" && \
+  ls -la /myapp/server-build/index.js || echo "index.js not found!"
 
 # Finally, build the production image with minimal footprint
 FROM base
@@ -71,7 +75,7 @@ ENV DATABASE_URL="file:$DATABASE_PATH"
 ENV CACHE_DATABASE_FILENAME="cache.db"
 ENV CACHE_DATABASE_PATH="$LITEFS_DIR/$CACHE_DATABASE_FILENAME"
 ENV INTERNAL_PORT="8080"
-ENV PORT="8081"
+ENV PORT="8080"
 ENV NODE_ENV="production"
 # For WAL support: https://github.com/prisma/prisma-engines/issues/4675#issuecomment-1914383246
 ENV PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK="1"
@@ -106,6 +110,8 @@ RUN mkdir -p /data ${LITEFS_DIR}
 # Verify the server build files exist
 RUN echo "Checking server build files:" && \
     ls -la /myapp/server-build/ && \
+    echo "Checking if index.js exists:" && \
+    ls -la /myapp/server-build/index.js || echo "index.js not found!" && \
     echo "Checking index.js:" && \
     ls -la /myapp/index.js
 

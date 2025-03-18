@@ -218,7 +218,8 @@ if (!portAvailable && !IS_DEV) {
 	process.exit(1)
 }
 
-const server = app.listen(portToUse, () => {
+// Listen on all interfaces (0.0.0.0) instead of just localhost
+const server = app.listen(portToUse, '0.0.0.0', () => {
 	if (!portAvailable) {
 		console.warn(
 			styleText(
