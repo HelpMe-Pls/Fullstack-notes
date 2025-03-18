@@ -49,7 +49,14 @@ ADD . .
 # Mount the secret and set it as an environment variable and run the build
 RUN --mount=type=secret,id=SENTRY_AUTH_TOKEN \
   export SENTRY_AUTH_TOKEN=$(cat /run/secrets/SENTRY_AUTH_TOKEN) && \
-  bun run build
+  echo "Running full build..." && \
+  bun run build:icons && \
+  bun run build:remix && \
+  mkdir -p /myapp/server-build && \
+  bun run build:server && \
+  echo "Build completed, checking directories:" && \
+  ls -la /myapp && \
+  ls -la /myapp/server-build || true
 
 # Finally, build the production image with minimal footprint
 FROM base
