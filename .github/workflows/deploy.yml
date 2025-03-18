@@ -86,14 +86,19 @@ jobs:
         with:
           node-version: '22.x'
 
+      - name: ⎔ Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
       - name: 📥 Download deps
-        run: npm install
+        run: bun i
 
       - name: 🏄 Copy test env vars
         run: cp .env.example .env
 
       - name: 🖼 Build icons
-        run: npm run build:icons
+        run: bun run build:icons
 
       - name: 🛠 Setup Database
         run: npx prisma migrate deploy && npx prisma generate --sql
@@ -112,6 +117,11 @@ jobs:
       - name: 🏄 Copy test env vars
         run: cp .env.example .env
 
+      - name: ⎔ Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
       - name: ⎔ Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -124,7 +134,7 @@ jobs:
         run: bunx playwright install --with-deps chromium
 
       - name: 🛠 Setup Database
-        run: bunx prisma migrate deploy && bunx prisma generate --sql
+        run: npx prisma migrate deploy && npx prisma generate --sql
 
       - name: 🏦 Cache Database
         id: db-cache
@@ -144,7 +154,7 @@ jobs:
         run: bun run build
 
       - name: 🎭 Playwright tests
-        run: bunx playwright test
+        run: npx playwright test
 
       - name: 📊 Upload report
         uses: actions/upload-artifact@v4
