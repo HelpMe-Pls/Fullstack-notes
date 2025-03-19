@@ -1,4 +1,4 @@
-app = "latest-95d0"
+app = "monolithic-notes"
 primary_region = "sin"
 kill_signal = "SIGINT"
 kill_timeout = 5
