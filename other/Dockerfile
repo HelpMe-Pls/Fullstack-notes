@@ -1,21 +1,21 @@
 # This file is moved to the root directory before building the image
 
-# base bun image
-FROM oven/bun:1-slim as base
+# base node image
+FROM node:22-bookworm-slim as base
 
 # set for base and all layer that inherit from it
 ENV NODE_ENV production
 
-# Install dependencies for Prisma & sqlite3
-RUN apt-get update && apt-get install -y fuse3 openssl sqlite3 ca-certificates python3 build-essential
+# Install openssl for Prisma
+RUN apt-get update && apt-get install -y fuse3 openssl sqlite3 ca-certificates
 
 # Install all node_modules, including dev dependencies
 FROM base as deps
 
 WORKDIR /myapp
 
-ADD package.json bun.lock .npmrc ./
-RUN bun install --frozen-lockfile
+ADD package.json package-lock.json .npmrc ./
+RUN npm ci --include=dev
 
 # Setup production node_modules
 FROM base as production-deps
@@ -23,8 +23,8 @@ FROM base as production-deps
 WORKDIR /myapp
 
 COPY --from=deps /myapp/node_modules /myapp/node_modules
-ADD package.json bun.lock .npmrc ./
-RUN bun install --frozen-lockfile --production
+ADD package.json package-lock.json .npmrc ./
+RUN npm prune --omit=dev
 
 # Build the app
 FROM base as build
@@ -42,44 +42,14 @@ WORKDIR /myapp
 COPY --from=deps /myapp/node_modules /myapp/node_modules
 
 ADD prisma .
-RUN bunx prisma generate
+RUN npx prisma generate
 
 ADD . .
-
-# Create server-build directory to ensure it exists
-RUN mkdir -p /myapp/server-build
 
 # Mount the secret and set it as an environment variable and run the build
 RUN --mount=type=secret,id=SENTRY_AUTH_TOKEN \
   export SENTRY_AUTH_TOKEN=$(cat /run/secrets/SENTRY_AUTH_TOKEN) && \
-  echo "Running full build..." && \
-  bun run build:icons && \
-  bun run build:remix && \
-  echo "Building server..." && \
-  bun run build:server && \
-  echo "Build completed, checking directories:" && \
-  ls -la /myapp && \
-  echo "Checking server-build directory:" && \
-  mkdir -p /myapp/server-build && \
-  ls -la /myapp/server-build/ || echo "server-build directory not found, creating it" && \
-  echo "Creating fallback index.js if needed:" && \
-  if [ ! -f "/myapp/server-build/index.js" ]; then \
-    echo "import express from 'express';\nimport 'dotenv/config';\n\nconsole.log('Server starting with fallback index.js...');\n\nconst app = express();\nconst port = process.env.PORT || 8081;\n\n// Basic route for health checks\napp.get('/', (req, res) => {\n  res.send('App is running in fallback mode');\n});\n\n// Add a health check endpoint\napp.get('/healthcheck', (req, res) => {\n  res.status(200).send('OK');\n});\n\n// Catch-all route\napp.use('*', (req, res) => {\n  res.status(200).send('App is running in fallback mode. The real application is not available.');\n});\n\n// Listen on all interfaces\napp.listen(port, '0.0.0.0', () => {\n  console.log(\`Server running on port \${port}\`);\n});\n\n// Export the app for testing\nexport default app;" > /myapp/server-build/index.js; \
-    echo "Created fallback index.js"; \
-  fi && \
-  echo "Checking server-build contents:" && \
-  find /myapp/server-build -type f -name "*.js" && \
-  echo "Checking if index.js exists:" && \
-  ls -la /myapp/server-build/index.js || (echo "index.js not found, creating fallback" && \
-    echo "import express from 'express';\nimport 'dotenv/config';\n\nconsole.log('Server starting with fallback index.js...');\n\nconst app = express();\nconst port = process.env.PORT || 8081;\n\n// Basic route for health checks\napp.get('/', (req, res) => {\n  res.send('App is running in fallback mode');\n});\n\n// Add a health check endpoint\napp.get('/healthcheck', (req, res) => {\n  res.status(200).send('OK');\n});\n\n// Catch-all route\napp.use('*', (req, res) => {\n  res.status(200).send('App is running in fallback mode. The real application is not available.');\n});\n\n// Listen on all interfaces\napp.listen(port, '0.0.0.0', () => {\n  console.log(\`Server running on port \${port}\`);\n});\n\n// Export the app for testing\nexport default app;" > /myapp/server-build/index.js) && \
-  echo "Checking index.js:" && \
-  ls -la /myapp/index.js
-
-# Create a fallback index.js if it doesn't exist
-RUN if [ ! -f "/myapp/server-build/index.js" ]; then \
-    echo "import express from 'express';\nimport 'dotenv/config';\n\nconsole.log('Server starting with fallback index.js...');\n\nconst app = express();\nconst port = process.env.PORT || 8081;\n\n// Basic route for health checks\napp.get('/', (req, res) => {\n  res.send('App is running in fallback mode');\n});\n\n// Add a health check endpoint\napp.get('/healthcheck', (req, res) => {\n  res.status(200).send('OK');\n});\n\n// Catch-all route\napp.use('*', (req, res) => {\n  res.status(200).send('App is running in fallback mode. The real application is not available.');\n});\n\n// Listen on all interfaces\napp.listen(port, '0.0.0.0', () => {\n  console.log(\`Server running on port \${port}\`);\n});\n\n// Export the app for testing\nexport default app;" > /myapp/server-build/index.js; \
-    echo "Created fallback index.js"; \
-  fi
+  npm run build
 
 # Finally, build the production image with minimal footprint
 FROM base
@@ -92,10 +62,10 @@ ENV DATABASE_URL="file:$DATABASE_PATH"
 ENV CACHE_DATABASE_FILENAME="cache.db"
 ENV CACHE_DATABASE_PATH="$LITEFS_DIR/$CACHE_DATABASE_FILENAME"
 ENV INTERNAL_PORT="8080"
-ENV PORT="8080"
+ENV PORT="8081"
 ENV NODE_ENV="production"
 # For WAL support: https://github.com/prisma/prisma-engines/issues/4675#issuecomment-1914383246
-ENV PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK="1"
+ENV PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK = "1"
 
 # add shortcut for connecting to database CLI
 RUN echo "#!/bin/sh\nset -x\nsqlite3 \$DATABASE_URL" > /usr/local/bin/database-cli && chmod +x /usr/local/bin/database-cli
@@ -111,35 +81,17 @@ RUN INTERNAL_COMMAND_TOKEN=$(openssl rand -hex 32) && \
 COPY --from=production-deps /myapp/node_modules /myapp/node_modules
 COPY --from=build /myapp/node_modules/.prisma /myapp/node_modules/.prisma
 
-# Create server-build directory in the final image
-RUN mkdir -p /myapp/server-build
-
-# Copy all necessary build files
 COPY --from=build /myapp/server-build /myapp/server-build
 COPY --from=build /myapp/build /myapp/build
 COPY --from=build /myapp/package.json /myapp/package.json
 COPY --from=build /myapp/prisma /myapp/prisma
 COPY --from=build /myapp/app/components/ui/icons /myapp/app/components/ui/icons
-COPY --from=build /myapp/index.js /myapp/index.js
-
-# Create a fallback index.js if it doesn't exist
-RUN if [ ! -f "/myapp/server-build/index.js" ]; then \
-    echo "import express from 'express';\nimport 'dotenv/config';\n\nconsole.log('Server starting with fallback index.js...');\n\nconst app = express();\nconst port = process.env.PORT || 8081;\n\n// Basic route for health checks\napp.get('/', (req, res) => {\n  res.send('App is running in fallback mode');\n});\n\n// Add a health check endpoint\napp.get('/healthcheck', (req, res) => {\n  res.status(200).send('OK');\n});\n\n// Catch-all route\napp.use('*', (req, res) => {\n  res.status(200).send('App is running in fallback mode. The real application is not available.');\n});\n\n// Listen on all interfaces\napp.listen(port, '0.0.0.0', () => {\n  console.log(\`Server running on port \${port}\`);\n});\n\n// Export the app for testing\nexport default app;" > /myapp/server-build/index.js; \
-    echo "Created fallback index.js"; \
-  fi
 
 # prepare for litefs
 COPY --from=flyio/litefs:0.5.11 /usr/local/bin/litefs /usr/local/bin/litefs
 ADD other/litefs.yml /etc/litefs.yml
 RUN mkdir -p /data ${LITEFS_DIR}
 
-# Verify the server build files exist
-RUN echo "Checking server build files:" && \
-    ls -la /myapp/server-build/ && \
-    echo "Checking if index.js exists:" && \
-    ls -la /myapp/server-build/index.js || (echo "index.js not found, creating fallback" && \
-    echo "import express from 'express';\nimport 'dotenv/config';\n\nconsole.log('Server starting with fallback index.js...');\n\nconst app = express();\nconst port = process.env.PORT || 8081;\n\n// Basic route for health checks\napp.get('/', (req, res) => {\n  res.send('App is running in fallback mode');\n});\n\n// Add a health check endpoint\napp.get('/healthcheck', (req, res) => {\n  res.status(200).send('OK');\n});\n\n// Catch-all route\napp.use('*', (req, res) => {\n  res.status(200).send('App is running in fallback mode. The real application is not available.');\n});\n\n// Listen on all interfaces\napp.listen(port, '0.0.0.0', () => {\n  console.log(\`Server running on port \${port}\`);\n});\n\n// Export the app for testing\nexport default app;" > /myapp/server-build/index.js) && \
-    echo "Checking index.js:" && \
-    ls -la /myapp/index.js
+ADD . .
 
 CMD ["litefs", "mount"]

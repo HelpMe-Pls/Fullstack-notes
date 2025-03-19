@@ -61,7 +61,7 @@
     "@radix-ui/react-slot": "^1.1.2",
     "@radix-ui/react-toast": "^1.2.6",
     "@radix-ui/react-tooltip": "^1.1.8",
-    "@react-email/components": "0.0.33",
+    "@react-email/components": "^0.0.13",
     "@react-router/express": "^7.2.0",
     "@react-router/node": "^7.2.0",
     "@react-router/remix-routes-option-adapter": "^7.2.0",
@@ -120,7 +120,7 @@
     "@faker-js/faker": "^9.5.0",
     "@playwright/test": "^1.50.1",
     "@react-router/dev": "^7.2.0",
-    "@sly-cli/sly": "^1.14.0",
+    "@sly-cli/sly": "^2.1.1",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
@@ -162,7 +162,7 @@
     "vitest": "^3.0.7"
   },
   "engines": {
-    "bun": ">=1.0.0"
+    "node": "22"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

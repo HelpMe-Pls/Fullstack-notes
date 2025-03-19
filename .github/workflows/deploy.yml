@@ -22,25 +22,25 @@ jobs:
       - name: ⬇️ Checkout repo
         uses: actions/checkout@v4
 
-      - name: ⎔ Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - name: ⎔ Setup node
+        uses: actions/setup-node@v4
         with:
-          bun-version: latest
+          node-version: 22
 
       - name: 📥 Download deps
-        run: bun i
+        uses: bahmutov/npm-install@v1
 
       - name: 🏄 Copy test env vars
         run: cp .env.example .env
 
       - name: 🖼 Build icons
-        run: bun run build:icons
+        run: npm run build:icons
 
       - name: 🛠 Setup Database
-        run: bunx prisma migrate deploy && bunx prisma generate --sql
+        run: npx prisma migrate deploy && npx prisma generate --sql
 
       - name: 🔬 Lint
-        run: bun run lint
+        run: npm run lint
 
   typecheck:
     name: ʦ TypeScript
@@ -49,30 +49,25 @@ jobs:
       - name: ⬇️ Checkout repo
         uses: actions/checkout@v4
 
-      - name: ⎔ Setup Node
+      - name: ⎔ Setup node
         uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
-
-      - name: ⎔ Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+          node-version: 22
 
       - name: 📥 Download deps
-        run: bun i
+        uses: bahmutov/npm-install@v1
 
       - name: 🏄 Copy test env vars
         run: cp .env.example .env
 
       - name: 🖼 Build icons
-        run: bun run build:icons
+        run: npm run build:icons
 
       - name: 🛠 Setup Database
-        run: bunx prisma migrate deploy && bunx prisma generate --sql
+        run: npx prisma migrate deploy && npx prisma generate --sql
 
       - name: 🔎 Type check
-        run: bun run typecheck
+        run: npm run typecheck --if-present
 
   vitest:
     name: ⚡ Vitest
@@ -81,27 +76,22 @@ jobs:
       - name: ⬇️ Checkout repo
         uses: actions/checkout@v4
 
-      - name: ⎔ Setup Node
+      - name: ⎔ Setup node
         uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
-
-      - name: ⎔ Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+          node-version: 22
 
       - name: 📥 Download deps
-        run: bun i
+        uses: bahmutov/npm-install@v1
 
       - name: 🏄 Copy test env vars
         run: cp .env.example .env
 
       - name: 🖼 Build icons
-        run: bun run build:icons
+        run: npm run build:icons
 
       - name: 🛠 Setup Database
-        run: bunx prisma migrate deploy && bunx prisma generate --sql
+        run: npx prisma migrate deploy && npx prisma generate --sql
 
       - name: ⚡ Run vitest
         run: npm run test -- --coverage
@@ -117,24 +107,19 @@ jobs:
       - name: 🏄 Copy test env vars
         run: cp .env.example .env
 
-      - name: ⎔ Setup Node
+      - name: ⎔ Setup node
         uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
-
-      - name: ⎔ Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+          node-version: 22
 
       - name: 📥 Download deps
-        run: bun i
+        uses: bahmutov/npm-install@v1
 
       - name: 📥 Install Playwright Browsers
-        run: bunx playwright install --with-deps chromium
+        run: npm run test:e2e:install
 
       - name: 🛠 Setup Database
-        run: bunx prisma migrate deploy && bunx prisma generate --sql
+        run: npx prisma migrate deploy && npx prisma generate --sql
 
       - name: 🏦 Cache Database
         id: db-cache
@@ -148,13 +133,13 @@ jobs:
 
       - name: 🌱 Seed Database
         if: steps.db-cache.outputs.cache-hit != 'true'
-        run: bunx prisma migrate reset --force
+        run: npx prisma migrate reset --force
 
       - name: 🏗 Build
-        run: bun run build
+        run: npm run build
 
       - name: 🎭 Playwright tests
-        run: bunx playwright test
+        run: npx playwright test
 
       - name: 📊 Upload report
         uses: actions/upload-artifact@v4
