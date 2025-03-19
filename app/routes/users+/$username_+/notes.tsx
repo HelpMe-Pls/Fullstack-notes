@@ -1,11 +1,11 @@
+import { invariantResponse } from '@epic-web/invariant'
+import { Img } from 'openimg/react'
+import { Link, NavLink, Outlet } from 'react-router'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { cn, getUserImgSrc } from '#app/utils/misc.tsx'
 import { useOptionalUser } from '#app/utils/user.ts'
-import { invariantResponse } from '@epic-web/invariant'
-import { Img } from 'openimg/react'
-import { Link, NavLink, Outlet } from 'react-router'
 import { type Route } from './+types/notes.ts'
 
 export async function loader({ params }: Route.LoaderArgs) {
@@ -25,9 +25,7 @@ export async function loader({ params }: Route.LoaderArgs) {
 	return { owner }
 }
 
-export default function NotesRoute({
-	loaderData,
-}: Readonly<Route.ComponentProps>) {
+export default function NotesRoute({ loaderData }: Route.ComponentProps) {
 	const user = useOptionalUser()
 	const isOwner = user?.id === loaderData.owner.id
 	const ownerDisplayName = loaderData.owner.name ?? loaderData.owner.username
