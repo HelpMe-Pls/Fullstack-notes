@@ -3,36 +3,36 @@
     "code": "MOCK_CODE_GITHUB_KODY",
     "accessToken": "MOCK_CODE_GITHUB_KODY_mock_access_token",
     "profile": {
-      "login": "Bart57",
-      "id": 6681445058407653,
-      "name": "Ms. Connie Erdman",
+      "login": "Cordia.Schneider",
+      "id": 542154753422173,
+      "name": "Lee Adams",
       "avatar_url": "https://github.com/ghost.png",
       "emails": [
-        "Cooper.Osinski@gmail.com",
-        "Lillie.Lowe@hotmail.com",
-        "General44@yahoo.com"
+        "Shaun_Legros@hotmail.com",
+        "Clementina_Berge69@hotmail.com",
+        "Ellen41@hotmail.com"
       ]
     },
     "emails": [
       {
-        "email": "Cooper.Osinski@gmail.com",
+        "email": "Shaun_Legros@hotmail.com",
         "verified": false,
         "primary": false,
         "visibility": "public"
       },
       {
-        "email": "Lillie.Lowe@hotmail.com",
+        "email": "Clementina_Berge69@hotmail.com",
         "verified": true,
         "primary": false,
         "visibility": null
       },
       {
-        "email": "General44@yahoo.com",
+        "email": "Ellen41@hotmail.com",
         "verified": true,
         "primary": true,
-        "visibility": null
+        "visibility": "public"
       }
     ],
-    "primaryEmail": "General44@yahoo.com"
+    "primaryEmail": "Ellen41@hotmail.com"
   }
 ]
